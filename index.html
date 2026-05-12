@@ -99,7 +99,6 @@
                 <option value="112" selected>Al-Ikhlas</option>
                 <option value="111">Al-Lahab</option>
                 <option value="1">Al-Fatihah</option>
-                <!-- Opsi lainnya bisa ditambahkan otomatis lewat JS nanti -->
             </select>
         </div>
 
@@ -121,7 +120,18 @@
         let currentAyahIndex = 0;
         let currentAudio = null;
 
-        // Fungsi memuat data Surat dari API Al-Quran
+        // FUNGSI BARU: Text-to-Speech untuk merespons anak
+        function bicara(teks) {
+            if ('speechSynthesis' in window) {
+                const suara = new SpeechSynthesisUtterance();
+                suara.text = teks;
+                suara.lang = 'id-ID'; // Bahasa Indonesia
+                suara.rate = 1.0; // Kecepatan normal
+                suara.pitch = 1.2; // Pitch agak tinggi agar ramah anak
+                window.speechSynthesis.speak(suara);
+            }
+        }
+
         async function loadSurah(surahNumber) {
             btn.disabled = true;
             messageBox.innerHTML = "Memuat data... ⏳";
@@ -141,16 +151,13 @@
             }
         }
 
-        // Panggil saat pertama kali buka
         loadSurah(surahSelect.value);
 
-        // Saat dropdown surat diganti
         surahSelect.addEventListener('change', (e) => {
             loadSurah(e.target.value);
             resultBox.innerHTML = "...";
         });
 
-        // Setup Voice Recognition
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             messageBox.innerHTML = "Gunakan Google Chrome untuk fitur suara!";
@@ -161,12 +168,15 @@
             recognition.interimResults = false;
 
             btn.addEventListener('click', () => {
+                // Hentikan suara robot jika masih bicara
+                window.speechSynthesis.cancel(); 
+
                 if(currentAyahIndex >= surahData.length - 1) {
                     messageBox.innerHTML = "Surat selesai! Pilih surat lain.";
+                    bicara("Alhamdulillah, surat selesai! Kamu hebat. Yuk pilih surat yang lain.");
                     return;
                 }
 
-                // Putar ayat saat ini
                 currentAudio = new Audio(surahData[currentAyahIndex].audio);
                 currentAudio.play();
                 
@@ -176,7 +186,6 @@
                 messageBox.style.color = "#17a2b8";
                 resultBox.innerHTML = "...";
 
-                // Saat audio selesai, nyalakan mic untuk menangkap ayat BERIKUTNYA
                 currentAudio.onended = () => {
                     recognition.start();
                     btn.innerHTML = "🎤";
@@ -196,18 +205,13 @@
                 const transcript = event.results[0][0].transcript;
                 resultBox.innerHTML = transcript;
 
-                // Teks target yang harus diucapkan anak (Ayat berikutnya)
                 const targetText = surahData[currentAyahIndex + 1].text;
-
-                // FUNGSI PEMAAF: Menghapus harakat/tanda baca agar mudah dicocokkan
                 const cleanTranscript = transcript.replace(/[\u0617-\u061A\u064B-\u0652]/g, '');
                 const cleanTarget = targetText.replace(/[\u0617-\u061A\u064B-\u0652]/g, '');
                 
-                // Cek apakah ada kecocokan teks
                 const kataTranscript = cleanTranscript.split(" ");
                 let cocok = false;
 
-                // Jika ada minimal 1 kata bermakna yang mirip, anggap benar
                 for(let kata of kataTranscript) {
                     if(kata.length > 2 && cleanTarget.includes(kata)) {
                         cocok = true; break;
@@ -217,11 +221,13 @@
                 if(cocok) {
                     messageBox.innerHTML = "🎉 Horeee! Lanjut! 🎉";
                     messageBox.style.color = "#28a745";
-                    currentAyahIndex++; // Maju ke ayat berikutnya
+                    bicara("Hore, pintar sekali! Lanjut yuk."); // <--- AUDIO SUKSES
+                    currentAyahIndex++; 
                     statusAyat.innerHTML = `Ayat ${currentAyahIndex + 1} dari ${surahData.length}`;
                 } else {
                     messageBox.innerHTML = "Kurang pas, kita coba lagi yuk! 💪";
                     messageBox.style.color = "#ff9800";
+                    bicara("Kurang pas, kita coba lagi yuk!"); // <--- AUDIO GAGAL
                 }
             };
         }
