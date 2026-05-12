@@ -334,7 +334,7 @@
             btnMain.className = "btn-round btn-play";
             btnMain.innerHTML = '<i class="fas fa-play"></i>';
             btnPause.innerHTML = '<i class="fas fa-pause"></i>';
-            btnPause.style.backgroundColor = "#ff9800"; // Kembali ke warna oranye
+            btnPause.style.backgroundColor = "#ff9800"; 
             btnMain.style.animation = "none";
             
             arabicText.innerHTML = "...";
@@ -426,9 +426,18 @@
                 playQari();
                 return;
             }
-            if (btnMain.className.includes('listening')) return; 
             
-            if (btnMain.className.includes('playing')) return; // Mencegah double klik saat jalan
+            // FITUR BARU: Jika mic macet saat listening, klik tombol ini untuk pancing ulang mic-nya!
+            if (btnMain.className.includes('listening')) {
+                statusMsg.innerHTML = "Menyalakan ulang mic... 🎤";
+                try { recognition.stop(); } catch(e) {}
+                setTimeout(() => {
+                    startUserTurn();
+                }, 300);
+                return; 
+            }
+            
+            if (btnMain.className.includes('playing')) return; 
             
             currentIdx = parseInt(startAyat.value);
             isPaused = false;
@@ -448,19 +457,19 @@
         };
 
         btnPause.onclick = () => {
-            if (btnMain.className === "btn-round btn-play") return; // Abaikan jika belum jalan
+            if (btnMain.className === "btn-round btn-play") return; 
 
             isPaused = !isPaused;
             if (isPaused) {
                 if (currentAudio) currentAudio.pause();
                 if (recognition) { try { recognition.stop(); } catch(e) {} }
                 btnPause.innerHTML = '<i class="fas fa-play"></i>';
-                btnPause.style.backgroundColor = "#28a745"; // Hijau
+                btnPause.style.backgroundColor = "#28a745"; 
                 statusMsg.innerHTML = "Permainan di-Pause";
                 btnMain.style.animation = "none";
             } else {
                 btnPause.innerHTML = '<i class="fas fa-pause"></i>';
-                btnPause.style.backgroundColor = "#ff9800"; // Kembali oranye
+                btnPause.style.backgroundColor = "#ff9800"; 
                 btnMain.style.animation = ""; 
                 
                 if (btnMain.className.includes('playing') && currentAudio) {
@@ -515,18 +524,27 @@
                 } else {
                     statusMsg.innerHTML = "Hafalannya belum sampai akhir, ulangi lagi yuk!";
                     btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
+                    
+                    // Jeda sebentar sebelum menyalakan mic lagi agar tidak macet
+                    try { recognition.stop(); } catch(e) {}
+                    setTimeout(() => {
+                        if (!isPaused && btnMain.className.includes('listening')) {
+                            try { recognition.start(); } catch(e) {}
+                        }
+                    }, 400);
                 }
             };
 
             recognition.onerror = () => {
-                if (!isPaused && btnMain.className.includes('listening')) {
-                    statusMsg.innerHTML = "Suara tidak jelas, coba lagi.";
-                }
+                // Jangan munculkan error jika errornya hanya 'no-speech' (hening)
             };
             
             recognition.onend = () => {
+                // JEDA 300ms INI ADALAH KUNCI AGAR CHROME TIDAK NGE-HANG
                 if (!isPaused && btnMain.className.includes('listening')) {
-                    try { recognition.start(); } catch(e) {}
+                    setTimeout(() => {
+                        try { recognition.start(); } catch(e) {}
+                    }, 300);
                 }
             }
         }
