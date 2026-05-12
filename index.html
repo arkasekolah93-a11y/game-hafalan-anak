@@ -15,7 +15,6 @@
             margin: 0;
             text-align: center;
         }
-
         .container {
             background-color: #FFFFFF;
             padding: 25px;
@@ -24,10 +23,8 @@
             width: 90%;
             max-width: 450px;
         }
-
         h1 { color: #0056b3; font-size: 24px; margin-bottom: 15px; }
         
-        /* Area Pengaturan (Dropdown) */
         .controls {
             display: flex;
             flex-direction: column;
@@ -37,12 +34,7 @@
             padding: 15px;
             border-radius: 15px;
         }
-
-        .row-control {
-            display: flex;
-            gap: 10px;
-        }
-
+        .row-control { display: flex; gap: 10px; }
         select {
             flex: 1;
             padding: 8px;
@@ -53,8 +45,7 @@
             color: #0056b3;
             outline: none;
         }
-
-        /* Tombol Utama */
+        
         .main-btn {
             background-color: #FFC107;
             border: none;
@@ -68,7 +59,6 @@
             transition: 0.2s;
             margin-top: 10px;
         }
-
         .main-btn:active { transform: scale(0.9); }
         .main-btn.playing { background-color: #17a2b8; animation: bounce 1s infinite; }
         .main-btn.listening { background-color: #ff9800; animation: pulse 1s infinite; }
@@ -88,7 +78,6 @@
             color: #333;
             direction: rtl;
         }
-
         .message { margin-top: 10px; font-size: 16px; font-weight: bold; color: #0056b3; min-height: 25px; }
     </style>
 </head>
@@ -97,7 +86,6 @@
     <div class="container">
         <h1>Sambung Ayat 30 Juz! 🌟</h1>
         
-        <!-- Pilihan Qari, Surat, dan Ayat -->
         <div class="controls">
             <select id="qari-select">
                 <option value="Muhammad_Thaha_Al-Junayd_128kbps" selected>👦 Suara Anak (Thaha Al-Junayd)</option>
@@ -130,22 +118,7 @@
 
         let surahData = [];
         let currentAyahIndex = 0;
-        let currentAudio = null;
 
-        // 1. Fungsi Normalisasi Teks Arab (Mengatasi masalah "dianggap salah")
-        function normalizeArabic(text) {
-            if (!text) return "";
-            return text
-                .replace(/[\u0617-\u061A\u064B-\u0652]/g, '') // Hapus harakat
-                .replace(/[أإآ]/g, 'ا') // Jadikan semua jenis Alif sama
-                .replace(/ى/g, 'ي')     // Jadikan Ya Maqsurah sama dengan Ya
-                .replace(/ة/g, 'ه')     // Jadikan Ta Marbutah sama dengan Ha
-                .replace(/ؤ/g, 'و')
-                .replace(/ئ/g, 'ي')
-                .trim();
-        }
-
-        // 2. Fungsi Text-to-Speech (Suara HP)
         function bicara(teks) {
             if ('speechSynthesis' in window) {
                 const suara = new SpeechSynthesisUtterance();
@@ -157,7 +130,7 @@
             }
         }
 
-        // 3. Muat Daftar 114 Surat saat aplikasi pertama kali dibuka
+        // Ambil Daftar 114 Surat
         async function fetchSurahList() {
             try {
                 const res = await fetch('https://api.alquran.cloud/v1/surah');
@@ -171,25 +144,23 @@
                     surahSelect.add(opt);
                 });
                 
-                // Set default ke Surat Al-Ikhlas (Surat 112)
-                surahSelect.value = 112; 
-                await loadSurahData(112);
+                surahSelect.value = 1; // Default Al-Fatihah
+                await loadSurahData(1);
             } catch (err) {
-                messageBox.innerHTML = "Gagal memuat surat. Cek internetmu.";
+                messageBox.innerHTML = "Gagal memuat surat.";
             }
         }
 
-        // 4. Muat Teks Ayat dari Surat yang dipilih
+        // Ambil Ayat (Versi Teks Gundul / Simple Clean) agar cocok dengan tangkapan suara HP
         async function loadSurahData(surahNumber) {
             btn.disabled = true;
             messageBox.innerHTML = "Memuat ayat... ⏳";
             
             try {
-                const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}`);
+                const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/quran-simple-clean`);
                 const data = await res.json();
                 surahData = data.data.ayahs;
                 
-                // Isi Dropdown Ayat
                 ayatSelect.innerHTML = '';
                 surahData.forEach((ayah, index) => {
                     let opt = document.createElement('option');
@@ -204,76 +175,53 @@
                 messageBox.innerHTML = "Siap! Tekan Play ▶️";
                 btn.disabled = false;
             } catch (error) {
-                messageBox.innerHTML = "Gagal memuat teks. Cek koneksi.";
+                messageBox.innerHTML = "Gagal memuat teks.";
             }
         }
 
-        // 5. Format URL Audio dari EveryAyah
         function getAudioUrl(qari, surahNum, ayahNumInSurah) {
-            // EveryAyah butuh format 3 digit, misal: 112 jadi "112", 1 jadi "001"
             let s = String(surahNum).padStart(3, '0');
             let a = String(ayahNumInSurah).padStart(3, '0');
             return `https://everyayah.com/data/${qari}/${s}${a}.mp3`;
         }
 
-        // Jalankan fungsi awal
         fetchSurahList();
 
-        // Event Listener: Jika Surat diganti
-        surahSelect.addEventListener('change', (e) => {
-            loadSurahData(e.target.value);
-            resultBox.innerHTML = "...";
+        surahSelect.addEventListener('change', (e) => { loadSurahData(e.target.value); resultBox.innerHTML = "..."; });
+        ayatSelect.addEventListener('change', (e) => { 
+            currentAyahIndex = parseInt(e.target.value); 
+            resultBox.innerHTML = "..."; 
+            messageBox.innerHTML = "Siap! Tekan Play ▶️"; 
         });
 
-        // Event Listener: Jika Ayat diganti
-        ayatSelect.addEventListener('change', (e) => {
-            currentAyahIndex = parseInt(e.target.value);
-            resultBox.innerHTML = "...";
-            messageBox.innerHTML = "Siap! Tekan Play ▶️";
-            messageBox.style.color = "#0056b3";
-        });
-
-        // Setup Voice Recognition
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            messageBox.innerHTML = "Gunakan Google Chrome untuk fitur suara!";
-            messageBox.style.color = "red";
-        } else {
+        if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
             recognition.lang = 'ar-SA';
             recognition.interimResults = false;
 
             btn.addEventListener('click', () => {
                 window.speechSynthesis.cancel(); 
-
                 if(currentAyahIndex >= surahData.length - 1) {
                     messageBox.innerHTML = "Surat selesai! Pilih surat lain.";
-                    bicara("Alhamdulillah, surat selesai! Kamu hebat. Yuk pilih surat yang lain.");
+                    bicara("Alhamdulillah, surat selesai! Kamu hebat.");
                     return;
                 }
 
-                // Ambil Audio URL berdasarkan Qari, Surat, dan Ayat
-                const qari = qariSelect.value;
-                const surahNum = surahSelect.value;
-                const ayahNum = surahData[currentAyahIndex].numberInSurah;
-                const audioUrl = getAudioUrl(qari, surahNum, ayahNum);
-
-                currentAudio = new Audio(audioUrl);
+                const audioUrl = getAudioUrl(qariSelect.value, surahSelect.value, surahData[currentAyahIndex].numberInSurah);
+                const currentAudio = new Audio(audioUrl);
                 currentAudio.play();
                 
                 btn.innerHTML = "🔊";
                 btn.className = "main-btn playing";
                 messageBox.innerHTML = "Ssst... Dengarkan dulu 🤫";
-                messageBox.style.color = "#17a2b8";
                 resultBox.innerHTML = "...";
 
-                // Audio selesai, mic menyala
                 currentAudio.onended = () => {
                     recognition.start();
                     btn.innerHTML = "🎤";
                     btn.className = "main-btn listening";
                     messageBox.innerHTML = `Lanjutkan Ayat ${surahData[currentAyahIndex + 1].numberInSurah}! 🎤`;
-                    messageBox.style.color = "#ff9800";
                 };
             });
 
@@ -287,18 +235,18 @@
                 const transcript = event.results[0][0].transcript;
                 resultBox.innerHTML = transcript;
 
-                // Teks target yang harus ditebak anak (Ayat selanjutnya)
-                const targetText = surahData[currentAyahIndex + 1].text;
+                // Teks target murni tanpa harakat (sudah dari API)
+                const targetText = surahData[currentAyahIndex + 1].text; 
                 
-                // Gunakan Fungsi Normalisasi agar lebih toleran terhadap ejaan sistem
-                const cleanTranscript = normalizeArabic(transcript).split(" ").filter(k => k.length > 2);
-                const cleanTarget = normalizeArabic(targetText);
+                // Normalisasi ringan (ubah alif bengkok jadi alif tegak)
+                const cleanTranscript = transcript.replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').split(" ");
+                const cleanTarget = targetText.replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
                 
                 let cocok = false;
-
-                // LOGIKA RAMAH ANAK: Jika ada 1 kata saja yang diucapkan benar, anggap lulus!
+                
+                // Cek apakah ada minimal 1 kata bermakna (lebih dari 2 huruf) yang diucapkan dengan benar
                 for(let kata of cleanTranscript) {
-                    if(cleanTarget.includes(kata)) {
+                    if(kata.length > 2 && cleanTarget.includes(kata)) {
                         cocok = true; 
                         break;
                     }
@@ -306,15 +254,11 @@
 
                 if(cocok) {
                     messageBox.innerHTML = "🎉 Horeee! Lanjut! 🎉";
-                    messageBox.style.color = "#28a745";
                     bicara("Hore, pintar sekali! Lanjut yuk."); 
-                    
-                    // Maju ke ayat berikutnya secara otomatis
                     currentAyahIndex++; 
                     ayatSelect.value = currentAyahIndex;
                 } else {
                     messageBox.innerHTML = "Kurang pas, coba lagi yuk! 💪";
-                    messageBox.style.color = "#ff9800";
                     bicara("Kurang pas, coba lagi yuk!"); 
                 }
             };
