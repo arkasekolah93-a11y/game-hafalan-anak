@@ -6,7 +6,7 @@
     <title>Game Hafalan Anak - 30 Juz</title>
     <style>
         body {
-            background-color: #007BFF;
+            background-color: #007BFF; /* Biru */
             font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
@@ -16,7 +16,7 @@
             text-align: center;
         }
         .container {
-            background-color: #FFFFFF;
+            background-color: #FFFFFF; /* Putih */
             padding: 25px;
             border-radius: 20px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
@@ -38,7 +38,7 @@
         select {
             padding: 8px;
             border-radius: 8px;
-            border: 2px solid #FFC107;
+            border: 2px solid #FFC107; /* Kuning */
             font-size: 14px;
             font-weight: bold;
             color: #0056b3;
@@ -85,9 +85,8 @@
         
         <div class="controls">
             <select id="qari-select" style="width: 100%;">
-                <option value="ar.husarymuallim" selected>👨‍🏫 Suara Guru (Pelan & Jelas)</option>
-                <option value="ar.minshawi">👨 Al-Minshawi (Standar)</option>
-                <option value="ar.alafasy">👨 Alafasy (Cepat)</option>
+                <option value="ar.abdurrahmaansudais" selected>🕌 As-Sudais (Imam Makkah)</option>
+                <option value="ar.alafasy">👨 Alafasy (Dewasa)</option>
             </select>
             
             <select id="surah-select" style="width: 100%;">
@@ -179,7 +178,7 @@
                 }
 
                 const qari = qariSelect.value;
-                // Mengambil nomor absolut ayat (1 sampai 6236) untuk URL audio yang super stabil
+                // Mengambil nomor absolut ayat untuk URL audio yang super stabil
                 const absoluteAyahNumber = surahData[currentIdx].number; 
                 const audioUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/${absoluteAyahNumber}.mp3`;
                 
