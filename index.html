@@ -3,127 +3,279 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Hafalan Anak - 30 Juz</title>
+    <title>Hafiz Cilik - Game Sambung Ayat</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        :root {
+            --primary: #007BFF;
+            --secondary: #FFC107;
+            --white: #FFFFFF;
+            --success: #28a745;
+            --bg: #f0f7ff;
+        }
+
         body {
-            background-color: #007BFF;
-            font-family: 'Arial', sans-serif;
+            background-color: var(--primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            text-align: center;
+            overflow: hidden;
         }
+
         .container {
-            background-color: #FFFFFF;
-            padding: 25px;
-            border-radius: 20px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            background-color: var(--white);
+            padding: 20px;
+            border-radius: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
             width: 90%;
             max-width: 450px;
+            text-align: center;
+            position: relative;
         }
-        h1 { color: #0056b3; font-size: 24px; margin-bottom: 15px; }
-        
-        .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+
+        h1 { color: var(--primary); font-size: 22px; margin: 10px 0; }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 12px;
             margin-bottom: 20px;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 15px;
+            overflow: hidden;
         }
-        .row-control { display: flex; gap: 10px; align-items: center; justify-content: center;}
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--secondary);
+            transition: width 0.5s ease;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            background: var(--bg);
+            padding: 12px;
+            border-radius: 20px;
+        }
+
         select {
             padding: 8px;
-            border-radius: 8px;
-            border: 2px solid #FFC107;
-            font-size: 14px;
+            border-radius: 10px;
+            border: 2px solid var(--secondary);
+            font-size: 13px;
             font-weight: bold;
-            color: #0056b3;
+            color: var(--primary);
             outline: none;
+            width: 100%;
         }
-        label { font-size: 12px; color: #666; font-weight: bold; }
-        
-        .main-btn {
-            background-color: #FFC107;
+
+        .toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 0 10px;
+        }
+
+        /* Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 45px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(21px); }
+
+        /* Tombol Utama */
+        .action-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .btn-round {
             border: none;
             border-radius: 50%;
-            width: 90px;
-            height: 90px;
-            font-size: 35px;
-            color: #fff;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
-            transition: 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: 0.3s;
+            color: white;
         }
-        .main-btn.playing { background-color: #17a2b8; animation: bounce 1s infinite; }
-        .main-btn.listening { background-color: #ff9800; animation: pulse 1s infinite; }
+
+        .btn-play {
+            width: 85px; height: 85px;
+            background-color: var(--secondary);
+            font-size: 30px;
+            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
+        }
+
+        .btn-hint {
+            width: 50px; height: 50px;
+            background-color: #6f42c1;
+            font-size: 20px;
+        }
+
+        .btn-pause {
+            width: 50px; height: 50px;
+            background-color: #dc3545;
+            font-size: 20px;
+        }
+
+        .btn-play.playing { background-color: #17a2b8; animation: bounce 1s infinite; }
+        .btn-play.listening { background-color: #ff9800; animation: pulse 1s infinite; }
 
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
-        .result-box {
-            margin-top: 15px;
+        .ayah-display {
+            background-color: var(--bg);
             padding: 15px;
-            background-color: #f1f8ff;
-            border-radius: 10px;
-            min-height: 40px;
-            font-size: 20px;
+            border-radius: 15px;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #arabic-text {
+            font-size: 24px;
             font-weight: bold;
             color: #333;
             direction: rtl;
+            display: none; /* Default sembunyi */
         }
-        .message { margin-top: 10px; font-size: 16px; font-weight: bold; color: #0056b3; }
+
+        #transcript-text {
+            font-size: 18px;
+            color: var(--primary);
+            font-weight: 500;
+            direction: rtl;
+        }
+
+        .message-label { font-weight: bold; margin-top: 10px; color: var(--primary); font-size: 14px; }
+        
+        /* Disable state */
+        button:disabled { background-color: #ccc !important; cursor: not-allowed; animation: none !important; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Sambung Ayat Al-Qur'an 🌟</h1>
+        <h1>Hafiz Cilik 🌟</h1>
         
-        <div class="controls">
-            <select id="qari-select" style="width: 100%;">
-                <option value="ar.abdurrahmaansudais" selected>🕌 As-Sudais (Imam Makkah)</option>
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+
+        <div class="controls-grid">
+            <select id="qari-select" style="grid-column: span 2;">
+                <option value="ar.abdurrahmaansudais" selected>🕌 As-Sudais (Makkah)</option>
                 <option value="ar.alafasy">👨 Alafasy (Dewasa)</option>
             </select>
-            
-            <select id="surah-select" style="width: 100%;">
-                <option value="">Memuat Surat... ⏳</option>
-            </select>
-
-            <div class="row-control">
-                <div>
-                    <label>Dari Ayat</label><br>
-                    <select id="start-ayat"></select>
-                </div>
-                <div>
-                    <label>Sampai Ayat</label><br>
-                    <select id="end-ayat"></select>
-                </div>
+            <select id="surah-select" style="grid-column: span 2;"><option>Muat Surat...</option></select>
+            <div>
+                <label style="font-size: 10px; font-weight: bold;">DARI AYAT</label>
+                <select id="start-ayat"></select>
+            </div>
+            <div>
+                <label style="font-size: 10px; font-weight: bold;">SAMPAI AYAT</label>
+                <select id="end-ayat"></select>
             </div>
         </div>
-        
-        <button id="main-btn" class="main-btn" disabled>▶️</button>
-        <div id="message" class="message">Tunggu...</div>
-        <div id="result" class="result-box">...</div>
+
+        <div class="toggle-container">
+            <span style="font-size: 12px; font-weight: bold; color: #666;">LIHAT TULISAN ARAB</span>
+            <label class="switch">
+                <input type="checkbox" id="text-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="ayah-display">
+            <div id="arabic-text">...</div>
+            <div id="transcript-text">Siap bermain?</div>
+        </div>
+
+        <div id="status-msg" class="message-label">Pilih surat dan tekan Play</div>
+
+        <div class="action-area">
+            <button id="btn-pause" class="btn-round btn-pause" title="Jeda"><i class="fas fa-pause"></i></button>
+            <button id="btn-main" class="btn-round btn-play"><i class="fas fa-play"></i></button>
+            <button id="btn-hint" class="btn-round btn-hint" title="Bantuan"><i class="fas fa-lightbulb"></i></button>
+        </div>
     </div>
 
     <script>
-        const btn = document.getElementById('main-btn');
-        const resultBox = document.getElementById('result');
-        const messageBox = document.getElementById('message');
+        const btnMain = document.getElementById('btn-main');
+        const btnPause = document.getElementById('btn-pause');
+        const btnHint = document.getElementById('btn-hint');
         const qariSelect = document.getElementById('qari-select');
         const surahSelect = document.getElementById('surah-select');
         const startAyat = document.getElementById('start-ayat');
         const endAyat = document.getElementById('end-ayat');
+        const progressBar = document.getElementById('progress-bar');
+        const arabicText = document.getElementById('arabic-text');
+        const transcriptText = document.getElementById('transcript-text');
+        const textToggle = document.getElementById('text-toggle');
+        const statusMsg = document.getElementById('status-msg');
 
         let surahData = [];
         let currentIdx = 0;
+        let isPaused = false;
+        let currentAudio = null;
+        let recognition = null;
 
+        // --- Inisialisasi Voice Recognition ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ar-SA';
+            recognition.interimResults = false;
+        }
+
+        // --- Fungsi Utama ---
         function normalize(text) {
             return text.replace(/[\u0617-\u061A\u064B-\u0652]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
+        }
+
+        function updateProgress() {
+            const start = parseInt(startAyat.value);
+            const end = parseInt(endAyat.value);
+            const total = end - start + 1;
+            const current = currentIdx - start;
+            const percent = (current / total) * 100;
+            progressBar.style.width = `${Math.max(0, percent)}%`;
         }
 
         async function fetchSurahs() {
@@ -131,17 +283,15 @@
             const data = await res.json();
             surahSelect.innerHTML = '';
             data.data.forEach(s => {
-                let opt = document.createElement('option');
-                opt.value = s.number;
-                opt.text = `${s.number}. ${s.englishName}`;
+                let opt = new Option(`${s.number}. ${s.englishName}`, s.number);
                 surahSelect.add(opt);
             });
-            surahSelect.value = 1; 
+            surahSelect.value = 1;
             loadAyahs(1);
         }
 
         async function loadAyahs(num) {
-            btn.disabled = true;
+            btnMain.disabled = true;
             const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-simple-clean`);
             const data = await res.json();
             surahData = data.data.ayahs;
@@ -149,105 +299,164 @@
             startAyat.innerHTML = '';
             endAyat.innerHTML = '';
             surahData.forEach((a, i) => {
-                let optS = new Option(`Ayat ${a.numberInSurah}`, i);
-                let optE = new Option(`Ayat ${a.numberInSurah}`, i);
-                startAyat.add(optS);
-                endAyat.add(optE);
+                startAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
+                endAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
             });
-            endAyat.value = surahData.length - 1; 
-            messageBox.innerHTML = "Siap! Tekan Play ▶️";
-            btn.disabled = false;
+            endAyat.value = surahData.length - 1;
+            btnMain.disabled = false;
+            statusMsg.innerHTML = "Siap! Tekan Play";
         }
 
-        fetchSurahs();
-        surahSelect.onchange = () => loadAyahs(surahSelect.value);
+        function playQari() {
+            if (isPaused) return;
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'ar-SA';
-
-            function playSession() {
-                if (currentIdx > parseInt(endAyat.value)) {
-                    messageBox.innerHTML = "Selesai! ✨";
-                    btn.innerHTML = "▶️";
-                    btn.className = "main-btn";
-                    return;
-                }
-
-                const qari = qariSelect.value;
-                const absoluteAyahNumber = surahData[currentIdx].number; 
-                
-                // PERBAIKAN: Bitrate diturunkan dari 128 ke 64 agar As-Sudais bisa diputar!
-                const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${absoluteAyahNumber}.mp3`;
-                
-                const audio = new Audio(audioUrl);
-                
-                audio.play();
-
-                btn.innerHTML = "🔊";
-                btn.className = "main-btn playing";
-                messageBox.innerHTML = `Qari: Ayat ${surahData[currentIdx].numberInSurah}`;
-
-                audio.onended = () => {
-                    if (currentIdx >= parseInt(endAyat.value)) {
-                        messageBox.innerHTML = "Alhamdulillah Selesai!";
-                        btn.innerHTML = "▶️";
-                        btn.className = "main-btn";
-                        return;
-                    }
-                    
-                    recognition.start();
-                    btn.innerHTML = "🎤";
-                    btn.className = "main-btn listening";
-                    messageBox.innerHTML = `Sekarang kamu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
-                    resultBox.innerHTML = "...";
-                };
-                
-                // Jika terjadi error saat memuat audio, tampilkan peringatan
-                audio.onerror = () => {
-                    messageBox.innerHTML = "Gagal memutar audio Qari.";
-                    btn.innerHTML = "▶️";
-                    btn.className = "main-btn";
-                };
+            if (currentIdx > parseInt(endAyat.value)) {
+                statusMsg.innerHTML = "🎉 Alhamdulillah Selesai!";
+                btnMain.innerHTML = '<i class="fas fa-redo"></i>';
+                btnMain.className = "btn-round btn-play";
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+                return;
             }
 
-            btn.onclick = () => {
-                currentIdx = parseInt(startAyat.value);
-                playSession();
-            };
+            const qari = qariSelect.value;
+            const ayahId = surahData[currentIdx].number;
+            const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${ayahId}.mp3`;
+            
+            if(currentAudio) currentAudio.pause();
+            currentAudio = new Audio(audioUrl);
+            currentAudio.play();
 
+            btnMain.innerHTML = '<i class="fas fa-volume-up"></i>';
+            btnMain.className = "btn-round btn-play playing";
+            statusMsg.innerHTML = `Qari sedang membaca Ayat ${surahData[currentIdx].numberInSurah}`;
+            
+            // Tampilkan teks jika toggle on
+            arabicText.innerHTML = surahData[currentIdx].text;
+            transcriptText.innerHTML = "...";
+
+            currentAudio.onended = () => {
+                if (currentIdx >= parseInt(endAyat.value)) {
+                    currentIdx++; // Trigger finish logic
+                    updateProgress();
+                    playQari();
+                    return;
+                }
+                startUserTurn();
+            };
+        }
+
+        function startUserTurn() {
+            if (isPaused) return;
+            
+            statusMsg.innerHTML = `Sekarang giliranmu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+            btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
+            btnMain.className = "btn-round btn-play listening";
+            
+            // Tampilkan teks target untuk belajar jika toggle ON
+            arabicText.innerHTML = surahData[currentIdx + 1].text;
+            
+            recognition.start();
+        }
+
+        // --- Event Handlers ---
+        btnMain.onclick = () => {
+            if (btnMain.innerHTML.includes('redo')) {
+                currentIdx = parseInt(startAyat.value);
+                isPaused = false;
+                playQari();
+                return;
+            }
+            currentIdx = parseInt(startAyat.value);
+            isPaused = false;
+            updateProgress();
+            playQari();
+        };
+
+        btnPause.onclick = () => {
+            isPaused = !isPaused;
+            if (isPaused) {
+                if (currentAudio) currentAudio.pause();
+                if (recognition) recognition.stop();
+                btnPause.innerHTML = '<i class="fas fa-play"></i>';
+                btnPause.style.backgroundColor = var(--success);
+                statusMsg.innerHTML = "Permainan di-Pause";
+            } else {
+                btnPause.innerHTML = '<i class="fas fa-pause"></i>';
+                btnPause.style.backgroundColor = "#dc3545";
+                // Resume logic
+                if (btnMain.className.includes('playing')) {
+                    currentAudio.play();
+                } else if (btnMain.className.includes('listening')) {
+                    recognition.start();
+                } else {
+                    playQari();
+                }
+            }
+        };
+
+        btnHint.onclick = () => {
+            if (!btnMain.className.includes('listening')) return;
+            
+            // Putar 2 detik pertama ayat target
+            const qari = qariSelect.value;
+            const ayahId = surahData[currentIdx + 1].number;
+            const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${ayahId}.mp3`;
+            
+            recognition.stop();
+            const hintAudio = new Audio(audioUrl);
+            hintAudio.play();
+            statusMsg.innerHTML = "Mendengarkan bantuan...";
+            
+            setTimeout(() => {
+                hintAudio.pause();
+                recognition.start();
+                statusMsg.innerHTML = "Ayo lanjut!";
+            }, 2500); // Putar selama 2.5 detik
+        };
+
+        textToggle.onchange = (e) => {
+            arabicText.style.display = e.target.checked ? "block" : "none";
+        };
+
+        surahSelect.onchange = () => loadAyahs(surahSelect.value);
+
+        if (recognition) {
             recognition.onresult = (e) => {
                 const speech = e.results[0][0].transcript;
-                resultBox.innerHTML = speech;
+                transcriptText.innerHTML = speech;
                 const target = normalize(surahData[currentIdx + 1].text);
                 const input = normalize(speech).split(" ");
 
                 let ok = false;
                 for(let k of input) { 
-                    if(k.length > 2 && target.includes(k)) { 
-                        ok = true; 
-                        break; 
-                    } 
+                    if(k.length > 2 && target.includes(k)) { ok = true; break; } 
                 }
 
                 if (ok) {
-                    currentIdx += 2; 
-                    messageBox.innerHTML = "Lanjut...";
-                    setTimeout(playSession, 1000);
+                    currentIdx += 2;
+                    updateProgress();
+                    confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
+                    setTimeout(playQari, 1200);
                 } else {
-                    messageBox.innerHTML = "Kurang pas, coba ulangi ayat tadi ya.";
-                    btn.innerHTML = "▶️";
-                    btn.className = "main-btn";
+                    statusMsg.innerHTML = "Coba ulangi lagi ya...";
+                    btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
                 }
             };
 
             recognition.onerror = () => {
-                btn.innerHTML = "▶️";
-                btn.className = "main-btn";
-                messageBox.innerHTML = "Suara tidak terdengar, coba lagi.";
+                if (!isPaused) {
+                    btnMain.className = "btn-round btn-play";
+                    btnMain.innerHTML = '<i class="fas fa-play"></i>';
+                    statusMsg.innerHTML = "Klik tombol mikrofon untuk mencoba lagi";
+                }
             };
         }
+
+        fetchSurahs();
     </script>
 </body>
 </html>
