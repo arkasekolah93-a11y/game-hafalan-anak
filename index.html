@@ -18,50 +18,55 @@
 
         .container {
             background-color: #FFFFFF;
-            padding: 30px;
+            padding: 25px;
             border-radius: 20px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
             width: 90%;
             max-width: 450px;
         }
 
-        h1 { color: #0056b3; font-size: 24px; margin-bottom: 5px; }
+        h1 { color: #0056b3; font-size: 24px; margin-bottom: 15px; }
         
+        /* Area Pengaturan (Dropdown) */
         .controls {
-            margin: 15px 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 15px;
+        }
+
+        .row-control {
+            display: flex;
             gap: 10px;
         }
 
         select {
-            padding: 10px;
-            border-radius: 10px;
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
             border: 2px solid #FFC107;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             color: #0056b3;
             outline: none;
         }
 
-        .status-ayat {
-            font-size: 16px;
-            font-weight: bold;
-            color: #666;
-            margin-bottom: 20px;
-        }
-
+        /* Tombol Utama */
         .main-btn {
             background-color: #FFC107;
             border: none;
             border-radius: 50%;
-            width: 100px;
-            height: 100px;
-            font-size: 40px;
+            width: 90px;
+            height: 90px;
+            font-size: 35px;
             color: #fff;
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
             transition: 0.2s;
+            margin-top: 10px;
         }
 
         .main-btn:active { transform: scale(0.9); }
@@ -73,18 +78,18 @@
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
         .result-box {
-            margin-top: 20px;
+            margin-top: 15px;
             padding: 15px;
             background-color: #f1f8ff;
             border-radius: 10px;
             min-height: 40px;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             color: #333;
             direction: rtl;
         }
 
-        .message { margin-top: 15px; font-size: 18px; font-weight: bold; color: #0056b3; min-height: 25px; }
+        .message { margin-top: 10px; font-size: 16px; font-weight: bold; color: #0056b3; min-height: 25px; }
     </style>
 </head>
 <body>
@@ -92,20 +97,26 @@
     <div class="container">
         <h1>Sambung Ayat 30 Juz! 🌟</h1>
         
+        <!-- Pilihan Qari, Surat, dan Ayat -->
         <div class="controls">
-            <select id="surah-select">
-                <option value="114">An-Nas</option>
-                <option value="113">Al-Falaq</option>
-                <option value="112" selected>Al-Ikhlas</option>
-                <option value="111">Al-Lahab</option>
-                <option value="1">Al-Fatihah</option>
+            <select id="qari-select">
+                <option value="Muhammad_Thaha_Al-Junayd_128kbps" selected>👦 Suara Anak (Thaha Al-Junayd)</option>
+                <option value="Minshawy_Teacher_128kbps">👨‍👧 Guru & Anak (Minshawi)</option>
+                <option value="Alafasy_128kbps">👨 Suara Dewasa (Alafasy)</option>
             </select>
+            
+            <div class="row-control">
+                <select id="surah-select">
+                    <option value="">Memuat Surat... ⏳</option>
+                </select>
+                <select id="ayat-select">
+                    <option value="0">Ayat 1</option>
+                </select>
+            </div>
         </div>
-
-        <div id="status-ayat" class="status-ayat">Ayat 1</div>
         
-        <button id="main-btn" class="main-btn">▶️</button>
-        <div id="message" class="message">Tekan tombol untuk mulai</div>
+        <button id="main-btn" class="main-btn" disabled>▶️</button>
+        <div id="message" class="message">Tunggu sebentar...</div>
         <div id="result" class="result-box">...</div>
     </div>
 
@@ -113,13 +124,28 @@
         const btn = document.getElementById('main-btn');
         const resultBox = document.getElementById('result');
         const messageBox = document.getElementById('message');
+        const qariSelect = document.getElementById('qari-select');
         const surahSelect = document.getElementById('surah-select');
-        const statusAyat = document.getElementById('status-ayat');
+        const ayatSelect = document.getElementById('ayat-select');
 
         let surahData = [];
         let currentAyahIndex = 0;
         let currentAudio = null;
 
+        // 1. Fungsi Normalisasi Teks Arab (Mengatasi masalah "dianggap salah")
+        function normalizeArabic(text) {
+            if (!text) return "";
+            return text
+                .replace(/[\u0617-\u061A\u064B-\u0652]/g, '') // Hapus harakat
+                .replace(/[أإآ]/g, 'ا') // Jadikan semua jenis Alif sama
+                .replace(/ى/g, 'ي')     // Jadikan Ya Maqsurah sama dengan Ya
+                .replace(/ة/g, 'ه')     // Jadikan Ta Marbutah sama dengan Ha
+                .replace(/ؤ/g, 'و')
+                .replace(/ئ/g, 'ي')
+                .trim();
+        }
+
+        // 2. Fungsi Text-to-Speech (Suara HP)
         function bicara(teks) {
             if ('speechSynthesis' in window) {
                 const suara = new SpeechSynthesisUtterance();
@@ -131,32 +157,83 @@
             }
         }
 
-        async function loadSurah(surahNumber) {
-            btn.disabled = true;
-            messageBox.innerHTML = "Memuat data... ⏳";
-            
+        // 3. Muat Daftar 114 Surat saat aplikasi pertama kali dibuka
+        async function fetchSurahList() {
             try {
-                const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/ar.alafasy`);
-                const data = await response.json();
-                surahData = data.data.ayahs;
-                currentAyahIndex = 0;
+                const res = await fetch('https://api.alquran.cloud/v1/surah');
+                const data = await res.json();
                 
-                statusAyat.innerHTML = `Ayat ${currentAyahIndex + 1} dari ${surahData.length}`;
-                messageBox.innerHTML = "Siap! Tekan Play ▶️";
-                btn.disabled = false;
-            } catch (error) {
-                messageBox.innerHTML = "Gagal memuat. Cek koneksi internet.";
-                messageBox.style.color = "red";
+                surahSelect.innerHTML = '';
+                data.data.forEach(surah => {
+                    let opt = document.createElement('option');
+                    opt.value = surah.number;
+                    opt.text = `${surah.number}. ${surah.englishName} (${surah.name})`;
+                    surahSelect.add(opt);
+                });
+                
+                // Set default ke Surat Al-Ikhlas (Surat 112)
+                surahSelect.value = 112; 
+                await loadSurahData(112);
+            } catch (err) {
+                messageBox.innerHTML = "Gagal memuat surat. Cek internetmu.";
             }
         }
 
-        loadSurah(surahSelect.value);
+        // 4. Muat Teks Ayat dari Surat yang dipilih
+        async function loadSurahData(surahNumber) {
+            btn.disabled = true;
+            messageBox.innerHTML = "Memuat ayat... ⏳";
+            
+            try {
+                const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}`);
+                const data = await res.json();
+                surahData = data.data.ayahs;
+                
+                // Isi Dropdown Ayat
+                ayatSelect.innerHTML = '';
+                surahData.forEach((ayah, index) => {
+                    let opt = document.createElement('option');
+                    opt.value = index;
+                    opt.text = `Ayat ${ayah.numberInSurah}`;
+                    ayatSelect.add(opt);
+                });
 
+                currentAyahIndex = 0;
+                ayatSelect.value = 0;
+                
+                messageBox.innerHTML = "Siap! Tekan Play ▶️";
+                btn.disabled = false;
+            } catch (error) {
+                messageBox.innerHTML = "Gagal memuat teks. Cek koneksi.";
+            }
+        }
+
+        // 5. Format URL Audio dari EveryAyah
+        function getAudioUrl(qari, surahNum, ayahNumInSurah) {
+            // EveryAyah butuh format 3 digit, misal: 112 jadi "112", 1 jadi "001"
+            let s = String(surahNum).padStart(3, '0');
+            let a = String(ayahNumInSurah).padStart(3, '0');
+            return `https://everyayah.com/data/${qari}/${s}${a}.mp3`;
+        }
+
+        // Jalankan fungsi awal
+        fetchSurahList();
+
+        // Event Listener: Jika Surat diganti
         surahSelect.addEventListener('change', (e) => {
-            loadSurah(e.target.value);
+            loadSurahData(e.target.value);
             resultBox.innerHTML = "...";
         });
 
+        // Event Listener: Jika Ayat diganti
+        ayatSelect.addEventListener('change', (e) => {
+            currentAyahIndex = parseInt(e.target.value);
+            resultBox.innerHTML = "...";
+            messageBox.innerHTML = "Siap! Tekan Play ▶️";
+            messageBox.style.color = "#0056b3";
+        });
+
+        // Setup Voice Recognition
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             messageBox.innerHTML = "Gunakan Google Chrome untuk fitur suara!";
@@ -175,7 +252,13 @@
                     return;
                 }
 
-                currentAudio = new Audio(surahData[currentAyahIndex].audio);
+                // Ambil Audio URL berdasarkan Qari, Surat, dan Ayat
+                const qari = qariSelect.value;
+                const surahNum = surahSelect.value;
+                const ayahNum = surahData[currentAyahIndex].numberInSurah;
+                const audioUrl = getAudioUrl(qari, surahNum, ayahNum);
+
+                currentAudio = new Audio(audioUrl);
                 currentAudio.play();
                 
                 btn.innerHTML = "🔊";
@@ -184,11 +267,12 @@
                 messageBox.style.color = "#17a2b8";
                 resultBox.innerHTML = "...";
 
+                // Audio selesai, mic menyala
                 currentAudio.onended = () => {
                     recognition.start();
                     btn.innerHTML = "🎤";
                     btn.className = "main-btn listening";
-                    messageBox.innerHTML = `Lanjutkan Ayat ${currentAyahIndex + 2}! 🎤`;
+                    messageBox.innerHTML = `Lanjutkan Ayat ${surahData[currentAyahIndex + 1].numberInSurah}! 🎤`;
                     messageBox.style.color = "#ff9800";
                 };
             });
@@ -203,37 +287,35 @@
                 const transcript = event.results[0][0].transcript;
                 resultBox.innerHTML = transcript;
 
+                // Teks target yang harus ditebak anak (Ayat selanjutnya)
                 const targetText = surahData[currentAyahIndex + 1].text;
-                const cleanTranscript = transcript.replace(/[\u0617-\u061A\u064B-\u0652]/g, '');
-                const cleanTarget = targetText.replace(/[\u0617-\u061A\u064B-\u0652]/g, '');
                 
-                // Ambil kata dari ucapan anak yang lebih dari 2 huruf
-                const kataTranscript = cleanTranscript.split(" ").filter(k => k.length > 2);
+                // Gunakan Fungsi Normalisasi agar lebih toleran terhadap ejaan sistem
+                const cleanTranscript = normalizeArabic(transcript).split(" ").filter(k => k.length > 2);
+                const cleanTarget = normalizeArabic(targetText);
                 
-                // Hitung berapa kata yang diucapkan anak yang cocok dengan ayat target
-                let jumlahCocok = 0;
-                for(let kata of kataTranscript) {
+                let cocok = false;
+
+                // LOGIKA RAMAH ANAK: Jika ada 1 kata saja yang diucapkan benar, anggap lulus!
+                for(let kata of cleanTranscript) {
                     if(cleanTarget.includes(kata)) {
-                        jumlahCocok++;
+                        cocok = true; 
+                        break;
                     }
                 }
 
-                // Ambil jumlah kata dari ayat target untuk standar kelulusan
-                const kataTarget = cleanTarget.split(" ").filter(k => k.length > 2);
-                
-                // LOGIKA BARU: Jika ayat pendek (<= 2 kata), butuh 1 kata benar. Jika ayat panjang, butuh minimal 2 kata benar.
-                let butuhCocok = kataTarget.length <= 2 ? 1 : 2; 
-
-                if(jumlahCocok >= butuhCocok) {
+                if(cocok) {
                     messageBox.innerHTML = "🎉 Horeee! Lanjut! 🎉";
                     messageBox.style.color = "#28a745";
                     bicara("Hore, pintar sekali! Lanjut yuk."); 
+                    
+                    // Maju ke ayat berikutnya secara otomatis
                     currentAyahIndex++; 
-                    statusAyat.innerHTML = `Ayat ${currentAyahIndex + 1} dari ${surahData.length}`;
+                    ayatSelect.value = currentAyahIndex;
                 } else {
-                    messageBox.innerHTML = "Kurang pas, kita coba lagi yuk! 💪";
+                    messageBox.innerHTML = "Kurang pas, coba lagi yuk! 💪";
                     messageBox.style.color = "#ff9800";
-                    bicara("Kurang pas, kita coba lagi yuk!"); 
+                    bicara("Kurang pas, coba lagi yuk!"); 
                 }
             };
         }
