@@ -145,7 +145,6 @@
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
-        /* PERBAIKAN SCROLL: Menambahkan max-height dan overflow-y */
         .ayah-display {
             background-color: var(--bg);
             padding: 15px;
@@ -251,7 +250,7 @@
 
         let surahData = [];
         let currentIdx = 0;
-        let targetAyahIdx = 0; // Menyimpan indeks ayat yang harus ditebak anak
+        let targetAyahIdx = 0; 
         let isPaused = false;
         let currentAudio = null;
         let recognition = null;
@@ -342,12 +341,11 @@
             }
             currentAudio = new Audio(audioUrl);
             
-            // LOGIKA MODE SEPARUH (Memotong audio di ~55%)
             function checkHalfTime() {
                 if (currentAudio.currentTime >= currentAudio.duration * 0.55) {
                     currentAudio.pause();
                     currentAudio.removeEventListener('timeupdate', checkHalfTime);
-                    targetAyahIdx = currentIdx; // Target anak adalah ayat yang SAMA
+                    targetAyahIdx = currentIdx; 
                     startUserTurn();
                 }
             }
@@ -363,7 +361,7 @@
                         playQari(); 
                         return;
                     }
-                    targetAyahIdx = currentIdx + 1; // Target anak adalah ayat BERIKUTNYA
+                    targetAyahIdx = currentIdx + 1; 
                     startUserTurn();
                 };
                 statusMsg.innerHTML = `Qari membaca Ayat ${surahData[currentIdx].numberInSurah}`;
@@ -469,17 +467,35 @@
                 const speech = e.results[0][0].transcript;
                 transcriptText.innerHTML = speech;
                 
-                // Cek dengan ayat target
-                const target = normalize(surahData[targetAyahIdx].text);
-                const input = normalize(speech).split(" ");
+                // SISTEM "GARIS FINISH": Memaksa anak membaca sampai akhir ayat
+                const targetTextRaw = normalize(surahData[targetAyahIdx].text);
+                const targetWords = targetTextRaw.split(" ");
+                
+                // Ambil 4 kata terakhir dari target sebagai "Garis Finish"
+                const finishLine = targetWords.slice(-4); 
+                const inputWords = normalize(speech).split(" ");
 
                 let ok = false;
-                for(let k of input) { 
-                    if(k.length > 2 && target.includes(k)) { ok = true; break; } 
+                
+                // Cek apakah ada ucapan anak yang menembus Garis Finish
+                for(let k of inputWords) { 
+                    if(k.length > 2 && finishLine.includes(k)) { 
+                        ok = true; 
+                        break; 
+                    } 
+                }
+
+                // Fallback khusus jika ayatnya sangat pendek (kurang dari 3 kata)
+                if (!ok && targetWords.length <= 3) {
+                    for(let k of inputWords) {
+                        if(k.length > 2 && targetWords.includes(k)) {
+                            ok = true;
+                            break;
+                        }
+                    }
                 }
 
                 if (ok) {
-                    // Jika Mode Separuh, tambah 1 indeks (ke ayat berikutnya). Jika Mode Full, tambah 2 indeks.
                     const isHalfMode = modeSelect.value === 'half';
                     currentIdx += isHalfMode ? 1 : 2;
                     
@@ -487,7 +503,7 @@
                     confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
                     setTimeout(playQari, 1200);
                 } else {
-                    statusMsg.innerHTML = "Kurang pas, coba ulangi...";
+                    statusMsg.innerHTML = "Hafalannya belum sampai akhir, ulangi lagi yuk!";
                     btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
                 }
             };
