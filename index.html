@@ -6,7 +6,7 @@
     <title>Game Hafalan Anak - 30 Juz</title>
     <style>
         body {
-            background-color: #007BFF; /* Biru */
+            background-color: #007BFF;
             font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
@@ -16,7 +16,7 @@
             text-align: center;
         }
         .container {
-            background-color: #FFFFFF; /* Putih */
+            background-color: #FFFFFF;
             padding: 25px;
             border-radius: 20px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
@@ -38,7 +38,7 @@
         select {
             padding: 8px;
             border-radius: 8px;
-            border: 2px solid #FFC107; /* Kuning */
+            border: 2px solid #FFC107;
             font-size: 14px;
             font-weight: bold;
             color: #0056b3;
@@ -85,9 +85,9 @@
         
         <div class="controls">
             <select id="qari-select" style="width: 100%;">
-                <option value="Muhammad_Thaha_Al-Junayd_128kbps" selected>👦 Thaha Al-Junayd (Anak)</option>
-                <option value="Minshawy_Teacher_128kbps">👨‍👧 Minshawi (Guru & Anak)</option>
-                <option value="Alafasy_128kbps">👨 Alafasy (Dewasa)</option>
+                <option value="ar.husarymuallim" selected>👨‍🏫 Suara Guru (Pelan & Jelas)</option>
+                <option value="ar.minshawi">👨 Al-Minshawi (Standar)</option>
+                <option value="ar.alafasy">👨 Alafasy (Cepat)</option>
             </select>
             
             <select id="surah-select" style="width: 100%;">
@@ -137,7 +137,7 @@
                 opt.text = `${s.number}. ${s.englishName}`;
                 surahSelect.add(opt);
             });
-            surahSelect.value = 1;
+            surahSelect.value = 1; // Mulai dari Al-Fatihah
             loadAyahs(1);
         }
 
@@ -155,7 +155,8 @@
                 startAyat.add(optS);
                 endAyat.add(optE);
             });
-            endAyat.value = surahData.length - 1;
+            // Default "Sampai Ayat" di set ke ayat terakhir surat tersebut
+            endAyat.value = surahData.length - 1; 
             messageBox.innerHTML = "Siap! Tekan Play ▶️";
             btn.disabled = false;
         }
@@ -169,6 +170,7 @@
             recognition.lang = 'ar-SA';
 
             function playSession() {
+                // Jika sudah melewati batas ayat akhir
                 if (currentIdx > parseInt(endAyat.value)) {
                     messageBox.innerHTML = "Selesai! ✨";
                     btn.innerHTML = "▶️";
@@ -176,39 +178,39 @@
                     return;
                 }
 
-                // Qari Memutar Ayat
                 const qari = qariSelect.value;
-                const sNum = String(surahSelect.value).padStart(3, '0');
-                const aNum = String(surahData[currentIdx].numberInSurah).padStart(3, '0');
-                const audio = new Audio(`https://everyayah.com/data/${qari}/${sNum}${aNum}.mp3`);
+                // Mengambil nomor absolut ayat (1 sampai 6236) untuk URL audio yang super stabil
+                const absoluteAyahNumber = surahData[currentIdx].number; 
+                const audioUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/${absoluteAyahNumber}.mp3`;
                 
-                audio.play().catch(() => {
-                    // Fallback jika Thaha server 1 bermasalah
-                    audio.src = `https://mirrors.quranicaudio.com/everyayah/data/${qari}/${sNum}${aNum}.mp3`;
-                    audio.play();
-                });
+                const audio = new Audio(audioUrl);
+                
+                audio.play();
 
                 btn.innerHTML = "🔊";
                 btn.className = "main-btn playing";
                 messageBox.innerHTML = `Qari: Ayat ${surahData[currentIdx].numberInSurah}`;
 
                 audio.onended = () => {
-                    if (currentIdx + 1 > parseInt(endAyat.value)) {
+                    // Cek jika Qari membacakan ayat terakhir dari rentang yang dipilih
+                    if (currentIdx >= parseInt(endAyat.value)) {
                         messageBox.innerHTML = "Alhamdulillah Selesai!";
                         btn.innerHTML = "▶️";
                         btn.className = "main-btn";
                         return;
                     }
                     
-                    // Giliran Kamu
+                    // Giliran Kamu menyambung ayat berikutnya
                     recognition.start();
                     btn.innerHTML = "🎤";
                     btn.className = "main-btn listening";
                     messageBox.innerHTML = `Sekarang kamu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+                    resultBox.innerHTML = "...";
                 };
             }
 
             btn.onclick = () => {
+                // Mulai dari ayat yang dipilih di "Dari Ayat"
                 currentIdx = parseInt(startAyat.value);
                 playSession();
             };
@@ -220,11 +222,19 @@
                 const input = normalize(speech).split(" ");
 
                 let ok = false;
-                for(let k of input) { if(k.length > 2 && target.includes(k)) { ok = true; break; } }
+                for(let k of input) { 
+                    if(k.length > 2 && target.includes(k)) { 
+                        ok = true; 
+                        break; 
+                    } 
+                }
 
                 if (ok) {
-                    currentIdx += 2; // Lompat ke ayat Qari berikutnya
-                    setTimeout(playSession, 500);
+                    // Jika benar, indeks ditambah 2 (Ayat yang kamu baca + Ayat yang akan dibaca Qari selanjutnya)
+                    currentIdx += 2; 
+                    messageBox.innerHTML = "Lanjut...";
+                    // Jeda 1 detik agar natural, lalu Qari otomatis membacakan ayat selanjutnya
+                    setTimeout(playSession, 1000);
                 } else {
                     messageBox.innerHTML = "Kurang pas, coba ulangi ayat tadi ya.";
                     btn.innerHTML = "▶️";
