@@ -6,7 +6,7 @@
     <title>Game Hafalan Anak - 30 Juz</title>
     <style>
         body {
-            background-color: #007BFF; /* Biru */
+            background-color: #007BFF;
             font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
@@ -16,7 +16,7 @@
             text-align: center;
         }
         .container {
-            background-color: #FFFFFF; /* Putih */
+            background-color: #FFFFFF;
             padding: 25px;
             border-radius: 20px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
@@ -38,7 +38,7 @@
         select {
             padding: 8px;
             border-radius: 8px;
-            border: 2px solid #FFC107; /* Kuning */
+            border: 2px solid #FFC107;
             font-size: 14px;
             font-weight: bold;
             color: #0056b3;
@@ -136,7 +136,7 @@
                 opt.text = `${s.number}. ${s.englishName}`;
                 surahSelect.add(opt);
             });
-            surahSelect.value = 1; // Mulai dari Al-Fatihah
+            surahSelect.value = 1; 
             loadAyahs(1);
         }
 
@@ -154,7 +154,6 @@
                 startAyat.add(optS);
                 endAyat.add(optE);
             });
-            // Default "Sampai Ayat" di set ke ayat terakhir surat tersebut
             endAyat.value = surahData.length - 1; 
             messageBox.innerHTML = "Siap! Tekan Play ▶️";
             btn.disabled = false;
@@ -169,7 +168,6 @@
             recognition.lang = 'ar-SA';
 
             function playSession() {
-                // Jika sudah melewati batas ayat akhir
                 if (currentIdx > parseInt(endAyat.value)) {
                     messageBox.innerHTML = "Selesai! ✨";
                     btn.innerHTML = "▶️";
@@ -178,9 +176,10 @@
                 }
 
                 const qari = qariSelect.value;
-                // Mengambil nomor absolut ayat untuk URL audio yang super stabil
                 const absoluteAyahNumber = surahData[currentIdx].number; 
-                const audioUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/${absoluteAyahNumber}.mp3`;
+                
+                // PERBAIKAN: Bitrate diturunkan dari 128 ke 64 agar As-Sudais bisa diputar!
+                const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${absoluteAyahNumber}.mp3`;
                 
                 const audio = new Audio(audioUrl);
                 
@@ -191,7 +190,6 @@
                 messageBox.innerHTML = `Qari: Ayat ${surahData[currentIdx].numberInSurah}`;
 
                 audio.onended = () => {
-                    // Cek jika Qari membacakan ayat terakhir dari rentang yang dipilih
                     if (currentIdx >= parseInt(endAyat.value)) {
                         messageBox.innerHTML = "Alhamdulillah Selesai!";
                         btn.innerHTML = "▶️";
@@ -199,17 +197,22 @@
                         return;
                     }
                     
-                    // Giliran Kamu menyambung ayat berikutnya
                     recognition.start();
                     btn.innerHTML = "🎤";
                     btn.className = "main-btn listening";
                     messageBox.innerHTML = `Sekarang kamu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
                     resultBox.innerHTML = "...";
                 };
+                
+                // Jika terjadi error saat memuat audio, tampilkan peringatan
+                audio.onerror = () => {
+                    messageBox.innerHTML = "Gagal memutar audio Qari.";
+                    btn.innerHTML = "▶️";
+                    btn.className = "main-btn";
+                };
             }
 
             btn.onclick = () => {
-                // Mulai dari ayat yang dipilih di "Dari Ayat"
                 currentIdx = parseInt(startAyat.value);
                 playSession();
             };
@@ -229,10 +232,8 @@
                 }
 
                 if (ok) {
-                    // Jika benar, indeks ditambah 2 (Ayat yang kamu baca + Ayat yang akan dibaca Qari selanjutnya)
                     currentIdx += 2; 
                     messageBox.innerHTML = "Lanjut...";
-                    // Jeda 1 detik agar natural, lalu Qari otomatis membacakan ayat selanjutnya
                     setTimeout(playSession, 1000);
                 } else {
                     messageBox.innerHTML = "Kurang pas, coba ulangi ayat tadi ya.";
