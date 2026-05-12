@@ -136,17 +136,8 @@
             box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
         }
 
-        .btn-hint {
-            width: 50px; height: 50px;
-            background-color: #6f42c1;
-            font-size: 20px;
-        }
-
-        .btn-pause {
-            width: 50px; height: 50px;
-            background-color: #dc3545;
-            font-size: 20px;
-        }
+        .btn-hint { width: 50px; height: 50px; background-color: #6f42c1; font-size: 20px; }
+        .btn-pause { width: 50px; height: 50px; background-color: #dc3545; font-size: 20px; }
 
         .btn-play.playing { background-color: #17a2b8; animation: bounce 1s infinite; }
         .btn-play.listening { background-color: #ff9800; animation: pulse 1s infinite; }
@@ -154,25 +145,28 @@
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
+        /* PERBAIKAN SCROLL: Menambahkan max-height dan overflow-y */
         .ayah-display {
             background-color: var(--bg);
             padding: 15px;
             border-radius: 15px;
             min-height: 60px;
+            max-height: 180px; 
+            overflow-y: auto; 
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 10px;
         }
 
         #arabic-text {
-            font-size: 26px; /* Dibuat sedikit lebih besar */
+            font-size: 26px;
             font-weight: bold;
             color: #333;
             direction: rtl;
-            line-height: 1.8; /* Menambah jarak agar harakat tidak bertumpuk */
+            line-height: 1.8;
             display: none; 
-            font-family: 'Amiri', 'Scheherazade New', 'Arial', sans-serif; /* Font ramah huruf Arab */
+            font-family: 'Amiri', 'Scheherazade New', 'Arial', sans-serif;
         }
 
         #transcript-text {
@@ -180,6 +174,7 @@
             color: var(--primary);
             font-weight: 500;
             direction: rtl;
+            margin-top: auto;
         }
 
         .message-label { font-weight: bold; margin-top: 10px; color: var(--primary); font-size: 14px; }
@@ -197,6 +192,11 @@
         </div>
 
         <div class="controls-grid">
+            <select id="mode-select" style="grid-column: span 2; background-color: #e3f2fd;">
+                <option value="full" selected>🎮 Mode: Sambung Ayat Berikutnya</option>
+                <option value="half">🧩 Mode: Lengkapi 1 Ayat (Separuh)</option>
+            </select>
+
             <select id="qari-select" style="grid-column: span 2;">
                 <option value="ar.abdurrahmaansudais" selected>🕌 As-Sudais (Makkah)</option>
                 <option value="ar.alafasy">👨 Alafasy (Dewasa)</option>
@@ -242,6 +242,7 @@
         const surahSelect = document.getElementById('surah-select');
         const startAyat = document.getElementById('start-ayat');
         const endAyat = document.getElementById('end-ayat');
+        const modeSelect = document.getElementById('mode-select');
         const progressBar = document.getElementById('progress-bar');
         const arabicText = document.getElementById('arabic-text');
         const transcriptText = document.getElementById('transcript-text');
@@ -250,6 +251,7 @@
 
         let surahData = [];
         let currentIdx = 0;
+        let targetAyahIdx = 0; // Menyimpan indeks ayat yang harus ditebak anak
         let isPaused = false;
         let currentAudio = null;
         let recognition = null;
@@ -261,7 +263,6 @@
             recognition.interimResults = false;
         }
 
-        // PENGHAPUS HARAKAT SUPER: Menghapus seluruh harakat, tajwid, dan tanda waqaf sebelum dicocokkan
         function normalize(text) {
             return text
                 .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '') 
@@ -291,9 +292,7 @@
                 });
                 surahSelect.value = 1;
                 await loadAyahs(1);
-            } catch (err) {
-                statusMsg.innerHTML = "Gagal memuat daftar surat.";
-            }
+            } catch (err) {}
         }
 
         async function loadAyahs(num) {
@@ -303,7 +302,6 @@
             statusMsg.innerHTML = "Memuat ayat... ⏳";
             
             try {
-                // UPDATE: Mengambil teks quran-uthmani yang lengkap dengan tajwid dan harakat
                 const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-uthmani`);
                 const data = await res.json();
                 surahData = data.data.ayahs;
@@ -319,9 +317,7 @@
                 btnPause.disabled = false;
                 btnHint.disabled = false;
                 statusMsg.innerHTML = "Siap! Tekan Play ▶️";
-            } catch (err) {
-                statusMsg.innerHTML = "Gagal memuat teks ayat.";
-            }
+            } catch (err) {}
         }
 
         function playQari() {
@@ -338,37 +334,63 @@
             const qari = qariSelect.value;
             const ayahId = surahData[currentIdx].number;
             const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${ayahId}.mp3`;
+            const isHalfMode = modeSelect.value === 'half';
             
-            if(currentAudio) currentAudio.pause();
+            if(currentAudio) {
+                currentAudio.pause();
+                currentAudio.removeEventListener('timeupdate', checkHalfTime);
+            }
             currentAudio = new Audio(audioUrl);
-            currentAudio.play();
+            
+            // LOGIKA MODE SEPARUH (Memotong audio di ~55%)
+            function checkHalfTime() {
+                if (currentAudio.currentTime >= currentAudio.duration * 0.55) {
+                    currentAudio.pause();
+                    currentAudio.removeEventListener('timeupdate', checkHalfTime);
+                    targetAyahIdx = currentIdx; // Target anak adalah ayat yang SAMA
+                    startUserTurn();
+                }
+            }
 
+            if (isHalfMode) {
+                currentAudio.addEventListener('timeupdate', checkHalfTime);
+                statusMsg.innerHTML = `Qari membaca separuh Ayat ${surahData[currentIdx].numberInSurah}`;
+            } else {
+                currentAudio.onended = () => {
+                    if (currentIdx >= parseInt(endAyat.value)) {
+                        currentIdx++; 
+                        updateProgress();
+                        playQari(); 
+                        return;
+                    }
+                    targetAyahIdx = currentIdx + 1; // Target anak adalah ayat BERIKUTNYA
+                    startUserTurn();
+                };
+                statusMsg.innerHTML = `Qari membaca Ayat ${surahData[currentIdx].numberInSurah}`;
+            }
+
+            currentAudio.play();
             btnMain.innerHTML = '<i class="fas fa-volume-up"></i>';
             btnMain.className = "btn-round btn-play playing";
-            statusMsg.innerHTML = `Qari membaca Ayat ${surahData[currentIdx].numberInSurah}`;
             
             arabicText.innerHTML = surahData[currentIdx].text;
             transcriptText.innerHTML = "...";
-
-            currentAudio.onended = () => {
-                if (currentIdx >= parseInt(endAyat.value)) {
-                    currentIdx++; 
-                    updateProgress();
-                    playQari(); 
-                    return;
-                }
-                startUserTurn();
-            };
         }
 
         function startUserTurn() {
             if (isPaused) return;
             
-            statusMsg.innerHTML = `Giliranmu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+            const isHalfMode = modeSelect.value === 'half';
+            if (isHalfMode) {
+                statusMsg.innerHTML = `Lanjutkan sisa Ayat ${surahData[targetAyahIdx].numberInSurah}!`;
+            } else {
+                statusMsg.innerHTML = `Giliranmu: Ayat ${surahData[targetAyahIdx].numberInSurah}`;
+            }
+            
             btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
             btnMain.className = "btn-round btn-play listening";
             
-            arabicText.innerHTML = surahData[currentIdx + 1].text;
+            arabicText.innerHTML = surahData[targetAyahIdx].text;
             
             if (recognition) {
                 try { recognition.start(); } catch(e) {}
@@ -382,9 +404,8 @@
                 playQari();
                 return;
             }
-            if (btnMain.className.includes('listening')) {
-                return; 
-            }
+            if (btnMain.className.includes('listening')) return; 
+            
             currentIdx = parseInt(startAyat.value);
             isPaused = false;
             progressBar.style.width = '0%';
@@ -395,9 +416,7 @@
             isPaused = !isPaused;
             if (isPaused) {
                 if (currentAudio) currentAudio.pause();
-                if (recognition) {
-                    try { recognition.stop(); } catch(e) {}
-                }
+                if (recognition) { try { recognition.stop(); } catch(e) {} }
                 btnPause.innerHTML = '<i class="fas fa-play"></i>';
                 btnPause.style.backgroundColor = "#28a745"; 
                 statusMsg.innerHTML = "Permainan di-Pause";
@@ -409,10 +428,10 @@
                 
                 if (btnMain.className.includes('playing') && currentAudio) {
                     currentAudio.play();
-                    statusMsg.innerHTML = `Qari membaca Ayat ${surahData[currentIdx].numberInSurah}`;
+                    statusMsg.innerHTML = "Lanjut memutar audio...";
                 } else if (btnMain.className.includes('listening') && recognition) {
                     try { recognition.start(); } catch(e) {}
-                    statusMsg.innerHTML = `Giliranmu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+                    statusMsg.innerHTML = "Lanjut mendengarkan suaramu...";
                 } else {
                     playQari();
                 }
@@ -423,12 +442,10 @@
             if (!btnMain.className.includes('listening')) return;
             
             const qari = qariSelect.value;
-            const ayahId = surahData[currentIdx + 1].number;
+            const ayahId = surahData[targetAyahIdx].number;
             const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${ayahId}.mp3`;
             
-            if(recognition) {
-                try { recognition.stop(); } catch(e) {}
-            }
+            if(recognition) { try { recognition.stop(); } catch(e) {} }
             
             const hintAudio = new Audio(audioUrl);
             hintAudio.play();
@@ -436,10 +453,8 @@
             
             setTimeout(() => {
                 hintAudio.pause();
-                if(recognition) {
-                    try { recognition.start(); } catch(e) {}
-                }
-                statusMsg.innerHTML = `Ayo lanjut: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+                if(recognition) { try { recognition.start(); } catch(e) {} }
+                statusMsg.innerHTML = "Ayo lanjut!";
             }, 2500); 
         };
 
@@ -454,8 +469,8 @@
                 const speech = e.results[0][0].transcript;
                 transcriptText.innerHTML = speech;
                 
-                // Cek pencocokan dengan teks target yang sudah dibersihkan harakatnya
-                const target = normalize(surahData[currentIdx + 1].text);
+                // Cek dengan ayat target
+                const target = normalize(surahData[targetAyahIdx].text);
                 const input = normalize(speech).split(" ");
 
                 let ok = false;
@@ -464,7 +479,10 @@
                 }
 
                 if (ok) {
-                    currentIdx += 2;
+                    // Jika Mode Separuh, tambah 1 indeks (ke ayat berikutnya). Jika Mode Full, tambah 2 indeks.
+                    const isHalfMode = modeSelect.value === 'half';
+                    currentIdx += isHalfMode ? 1 : 2;
+                    
                     updateProgress();
                     confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
                     setTimeout(playQari, 1200);
