@@ -39,7 +39,6 @@
 
         h1 { color: var(--primary); font-size: 22px; margin: 10px 0; }
 
-        /* Progress Bar */
         .progress-container {
             width: 100%;
             background: #e9ecef;
@@ -84,7 +83,6 @@
             padding: 0 10px;
         }
 
-        /* Switch Styling */
         .switch {
             position: relative;
             display: inline-block;
@@ -112,7 +110,6 @@
         input:checked + .slider { background-color: var(--primary); }
         input:checked + .slider:before { transform: translateX(21px); }
 
-        /* Tombol Utama */
         .action-area {
             display: flex;
             justify-content: center;
@@ -169,11 +166,13 @@
         }
 
         #arabic-text {
-            font-size: 24px;
+            font-size: 26px; /* Dibuat sedikit lebih besar */
             font-weight: bold;
             color: #333;
             direction: rtl;
-            display: none; /* Default sembunyi */
+            line-height: 1.8; /* Menambah jarak agar harakat tidak bertumpuk */
+            display: none; 
+            font-family: 'Amiri', 'Scheherazade New', 'Arial', sans-serif; /* Font ramah huruf Arab */
         }
 
         #transcript-text {
@@ -262,8 +261,14 @@
             recognition.interimResults = false;
         }
 
+        // PENGHAPUS HARAKAT SUPER: Menghapus seluruh harakat, tajwid, dan tanda waqaf sebelum dicocokkan
         function normalize(text) {
-            return text.replace(/[\u0617-\u061A\u064B-\u0652]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
+            return text
+                .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '') 
+                .replace(/[أإآٱ]/g, 'ا')
+                .replace(/ى/g, 'ي')
+                .replace(/ة/g, 'ه')
+                .trim();
         }
 
         function updateProgress() {
@@ -298,7 +303,8 @@
             statusMsg.innerHTML = "Memuat ayat... ⏳";
             
             try {
-                const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-simple-clean`);
+                // UPDATE: Mengambil teks quran-uthmani yang lengkap dengan tajwid dan harakat
+                const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-uthmani`);
                 const data = await res.json();
                 surahData = data.data.ayahs;
                 
@@ -377,7 +383,6 @@
                 return;
             }
             if (btnMain.className.includes('listening')) {
-                // If it's listening and user taps, do nothing or restart listen
                 return; 
             }
             currentIdx = parseInt(startAyat.value);
@@ -394,7 +399,7 @@
                     try { recognition.stop(); } catch(e) {}
                 }
                 btnPause.innerHTML = '<i class="fas fa-play"></i>';
-                btnPause.style.backgroundColor = "#28a745"; // PERBAIKAN: Menggunakan string warna langsung
+                btnPause.style.backgroundColor = "#28a745"; 
                 statusMsg.innerHTML = "Permainan di-Pause";
                 btnMain.style.animation = "none";
             } else {
@@ -448,6 +453,8 @@
             recognition.onresult = (e) => {
                 const speech = e.results[0][0].transcript;
                 transcriptText.innerHTML = speech;
+                
+                // Cek pencocokan dengan teks target yang sudah dibersihkan harakatnya
                 const target = normalize(surahData[currentIdx + 1].text);
                 const input = normalize(speech).split(" ");
 
@@ -474,7 +481,6 @@
             };
             
             recognition.onend = () => {
-                // Keep listening if it's still the user's turn and not paused
                 if (!isPaused && btnMain.className.includes('listening')) {
                     try { recognition.start(); } catch(e) {}
                 }
