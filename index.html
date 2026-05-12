@@ -185,7 +185,6 @@
 
         .message-label { font-weight: bold; margin-top: 10px; color: var(--primary); font-size: 14px; }
         
-        /* Disable state */
         button:disabled { background-color: #ccc !important; cursor: not-allowed; animation: none !important; }
     </style>
 </head>
@@ -203,7 +202,7 @@
                 <option value="ar.abdurrahmaansudais" selected>🕌 As-Sudais (Makkah)</option>
                 <option value="ar.alafasy">👨 Alafasy (Dewasa)</option>
             </select>
-            <select id="surah-select" style="grid-column: span 2;"><option>Muat Surat...</option></select>
+            <select id="surah-select" style="grid-column: span 2;"><option value="">Memuat Surat... ⏳</option></select>
             <div>
                 <label style="font-size: 10px; font-weight: bold;">DARI AYAT</label>
                 <select id="start-ayat"></select>
@@ -227,12 +226,12 @@
             <div id="transcript-text">Siap bermain?</div>
         </div>
 
-        <div id="status-msg" class="message-label">Pilih surat dan tekan Play</div>
+        <div id="status-msg" class="message-label">Tunggu sebentar...</div>
 
         <div class="action-area">
-            <button id="btn-pause" class="btn-round btn-pause" title="Jeda"><i class="fas fa-pause"></i></button>
-            <button id="btn-main" class="btn-round btn-play"><i class="fas fa-play"></i></button>
-            <button id="btn-hint" class="btn-round btn-hint" title="Bantuan"><i class="fas fa-lightbulb"></i></button>
+            <button id="btn-pause" class="btn-round btn-pause" title="Jeda" disabled><i class="fas fa-pause"></i></button>
+            <button id="btn-main" class="btn-round btn-play" disabled><i class="fas fa-play"></i></button>
+            <button id="btn-hint" class="btn-round btn-hint" title="Bantuan" disabled><i class="fas fa-lightbulb"></i></button>
         </div>
     </div>
 
@@ -256,7 +255,6 @@
         let currentAudio = null;
         let recognition = null;
 
-        // --- Inisialisasi Voice Recognition ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
@@ -264,7 +262,6 @@
             recognition.interimResults = false;
         }
 
-        // --- Fungsi Utama ---
         function normalize(text) {
             return text.replace(/[\u0617-\u061A\u064B-\u0652]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
         }
@@ -275,36 +272,50 @@
             const total = end - start + 1;
             const current = currentIdx - start;
             const percent = (current / total) * 100;
-            progressBar.style.width = `${Math.max(0, percent)}%`;
+            progressBar.style.width = `${Math.max(0, Math.min(percent, 100))}%`;
         }
 
         async function fetchSurahs() {
-            const res = await fetch('https://api.alquran.cloud/v1/surah');
-            const data = await res.json();
-            surahSelect.innerHTML = '';
-            data.data.forEach(s => {
-                let opt = new Option(`${s.number}. ${s.englishName}`, s.number);
-                surahSelect.add(opt);
-            });
-            surahSelect.value = 1;
-            loadAyahs(1);
+            try {
+                const res = await fetch('https://api.alquran.cloud/v1/surah');
+                const data = await res.json();
+                surahSelect.innerHTML = '';
+                data.data.forEach(s => {
+                    let opt = new Option(`${s.number}. ${s.englishName}`, s.number);
+                    surahSelect.add(opt);
+                });
+                surahSelect.value = 1;
+                await loadAyahs(1);
+            } catch (err) {
+                statusMsg.innerHTML = "Gagal memuat daftar surat.";
+            }
         }
 
         async function loadAyahs(num) {
             btnMain.disabled = true;
-            const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-simple-clean`);
-            const data = await res.json();
-            surahData = data.data.ayahs;
+            btnPause.disabled = true;
+            btnHint.disabled = true;
+            statusMsg.innerHTML = "Memuat ayat... ⏳";
             
-            startAyat.innerHTML = '';
-            endAyat.innerHTML = '';
-            surahData.forEach((a, i) => {
-                startAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
-                endAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
-            });
-            endAyat.value = surahData.length - 1;
-            btnMain.disabled = false;
-            statusMsg.innerHTML = "Siap! Tekan Play";
+            try {
+                const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-simple-clean`);
+                const data = await res.json();
+                surahData = data.data.ayahs;
+                
+                startAyat.innerHTML = '';
+                endAyat.innerHTML = '';
+                surahData.forEach((a, i) => {
+                    startAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
+                    endAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
+                });
+                endAyat.value = surahData.length - 1;
+                btnMain.disabled = false;
+                btnPause.disabled = false;
+                btnHint.disabled = false;
+                statusMsg.innerHTML = "Siap! Tekan Play ▶️";
+            } catch (err) {
+                statusMsg.innerHTML = "Gagal memuat teks ayat.";
+            }
         }
 
         function playQari() {
@@ -314,11 +325,7 @@
                 statusMsg.innerHTML = "🎉 Alhamdulillah Selesai!";
                 btnMain.innerHTML = '<i class="fas fa-redo"></i>';
                 btnMain.className = "btn-round btn-play";
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 return;
             }
 
@@ -332,17 +339,16 @@
 
             btnMain.innerHTML = '<i class="fas fa-volume-up"></i>';
             btnMain.className = "btn-round btn-play playing";
-            statusMsg.innerHTML = `Qari sedang membaca Ayat ${surahData[currentIdx].numberInSurah}`;
+            statusMsg.innerHTML = `Qari membaca Ayat ${surahData[currentIdx].numberInSurah}`;
             
-            // Tampilkan teks jika toggle on
             arabicText.innerHTML = surahData[currentIdx].text;
             transcriptText.innerHTML = "...";
 
             currentAudio.onended = () => {
                 if (currentIdx >= parseInt(endAyat.value)) {
-                    currentIdx++; // Trigger finish logic
+                    currentIdx++; 
                     updateProgress();
-                    playQari();
+                    playQari(); 
                     return;
                 }
                 startUserTurn();
@@ -352,17 +358,17 @@
         function startUserTurn() {
             if (isPaused) return;
             
-            statusMsg.innerHTML = `Sekarang giliranmu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+            statusMsg.innerHTML = `Giliranmu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
             btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
             btnMain.className = "btn-round btn-play listening";
             
-            // Tampilkan teks target untuk belajar jika toggle ON
             arabicText.innerHTML = surahData[currentIdx + 1].text;
             
-            recognition.start();
+            if (recognition) {
+                try { recognition.start(); } catch(e) {}
+            }
         }
 
-        // --- Event Handlers ---
         btnMain.onclick = () => {
             if (btnMain.innerHTML.includes('redo')) {
                 currentIdx = parseInt(startAyat.value);
@@ -370,9 +376,13 @@
                 playQari();
                 return;
             }
+            if (btnMain.className.includes('listening')) {
+                // If it's listening and user taps, do nothing or restart listen
+                return; 
+            }
             currentIdx = parseInt(startAyat.value);
             isPaused = false;
-            updateProgress();
+            progressBar.style.width = '0%';
             playQari();
         };
 
@@ -380,18 +390,24 @@
             isPaused = !isPaused;
             if (isPaused) {
                 if (currentAudio) currentAudio.pause();
-                if (recognition) recognition.stop();
+                if (recognition) {
+                    try { recognition.stop(); } catch(e) {}
+                }
                 btnPause.innerHTML = '<i class="fas fa-play"></i>';
-                btnPause.style.backgroundColor = var(--success);
+                btnPause.style.backgroundColor = "#28a745"; // PERBAIKAN: Menggunakan string warna langsung
                 statusMsg.innerHTML = "Permainan di-Pause";
+                btnMain.style.animation = "none";
             } else {
                 btnPause.innerHTML = '<i class="fas fa-pause"></i>';
                 btnPause.style.backgroundColor = "#dc3545";
-                // Resume logic
-                if (btnMain.className.includes('playing')) {
+                btnMain.style.animation = ""; 
+                
+                if (btnMain.className.includes('playing') && currentAudio) {
                     currentAudio.play();
-                } else if (btnMain.className.includes('listening')) {
-                    recognition.start();
+                    statusMsg.innerHTML = `Qari membaca Ayat ${surahData[currentIdx].numberInSurah}`;
+                } else if (btnMain.className.includes('listening') && recognition) {
+                    try { recognition.start(); } catch(e) {}
+                    statusMsg.innerHTML = `Giliranmu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
                 } else {
                     playQari();
                 }
@@ -401,21 +417,25 @@
         btnHint.onclick = () => {
             if (!btnMain.className.includes('listening')) return;
             
-            // Putar 2 detik pertama ayat target
             const qari = qariSelect.value;
             const ayahId = surahData[currentIdx + 1].number;
             const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${ayahId}.mp3`;
             
-            recognition.stop();
+            if(recognition) {
+                try { recognition.stop(); } catch(e) {}
+            }
+            
             const hintAudio = new Audio(audioUrl);
             hintAudio.play();
-            statusMsg.innerHTML = "Mendengarkan bantuan...";
+            statusMsg.innerHTML = "Bantuan... 💡";
             
             setTimeout(() => {
                 hintAudio.pause();
-                recognition.start();
-                statusMsg.innerHTML = "Ayo lanjut!";
-            }, 2500); // Putar selama 2.5 detik
+                if(recognition) {
+                    try { recognition.start(); } catch(e) {}
+                }
+                statusMsg.innerHTML = `Ayo lanjut: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
+            }, 2500); 
         };
 
         textToggle.onchange = (e) => {
@@ -442,18 +462,23 @@
                     confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
                     setTimeout(playQari, 1200);
                 } else {
-                    statusMsg.innerHTML = "Coba ulangi lagi ya...";
+                    statusMsg.innerHTML = "Kurang pas, coba ulangi...";
                     btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
                 }
             };
 
             recognition.onerror = () => {
-                if (!isPaused) {
-                    btnMain.className = "btn-round btn-play";
-                    btnMain.innerHTML = '<i class="fas fa-play"></i>';
-                    statusMsg.innerHTML = "Klik tombol mikrofon untuk mencoba lagi";
+                if (!isPaused && btnMain.className.includes('listening')) {
+                    statusMsg.innerHTML = "Suara tidak jelas, coba lagi.";
                 }
             };
+            
+            recognition.onend = () => {
+                // Keep listening if it's still the user's turn and not paused
+                if (!isPaused && btnMain.className.includes('listening')) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            }
         }
 
         fetchSurahs();
