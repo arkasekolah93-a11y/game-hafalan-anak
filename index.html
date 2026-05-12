@@ -114,7 +114,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
             margin: 15px 0;
         }
 
@@ -130,14 +130,16 @@
         }
 
         .btn-play {
-            width: 85px; height: 85px;
+            width: 80px; height: 80px;
             background-color: var(--secondary);
-            font-size: 30px;
+            font-size: 28px;
             box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
         }
 
-        .btn-hint { width: 50px; height: 50px; background-color: #6f42c1; font-size: 20px; }
-        .btn-pause { width: 50px; height: 50px; background-color: #dc3545; font-size: 20px; }
+        .btn-side { width: 45px; height: 45px; font-size: 18px; }
+        .btn-stop { background-color: #dc3545; }
+        .btn-pause { background-color: #ff9800; }
+        .btn-restart { background-color: #17a2b8; }
 
         .btn-play.playing { background-color: #17a2b8; animation: bounce 1s infinite; }
         .btn-play.listening { background-color: #ff9800; animation: pulse 1s infinite; }
@@ -178,7 +180,7 @@
 
         .message-label { font-weight: bold; margin-top: 10px; color: var(--primary); font-size: 14px; }
         
-        button:disabled { background-color: #ccc !important; cursor: not-allowed; animation: none !important; }
+        button:disabled { background-color: #ccc !important; cursor: not-allowed; animation: none !important; box-shadow: none !important; }
     </style>
 </head>
 <body>
@@ -227,16 +229,19 @@
         <div id="status-msg" class="message-label">Tunggu sebentar...</div>
 
         <div class="action-area">
-            <button id="btn-pause" class="btn-round btn-pause" title="Jeda" disabled><i class="fas fa-pause"></i></button>
+            <button id="btn-stop" class="btn-round btn-side btn-stop" title="Berhenti" disabled><i class="fas fa-stop"></i></button>
+            <button id="btn-pause" class="btn-round btn-side btn-pause" title="Jeda" disabled><i class="fas fa-pause"></i></button>
             <button id="btn-main" class="btn-round btn-play" disabled><i class="fas fa-play"></i></button>
-            <button id="btn-hint" class="btn-round btn-hint" title="Bantuan" disabled><i class="fas fa-lightbulb"></i></button>
+            <button id="btn-restart" class="btn-round btn-side btn-restart" title="Mulai Ulang" disabled><i class="fas fa-redo"></i></button>
         </div>
     </div>
 
     <script>
         const btnMain = document.getElementById('btn-main');
         const btnPause = document.getElementById('btn-pause');
-        const btnHint = document.getElementById('btn-hint');
+        const btnStop = document.getElementById('btn-stop');
+        const btnRestart = document.getElementById('btn-restart');
+        
         const qariSelect = document.getElementById('qari-select');
         const surahSelect = document.getElementById('surah-select');
         const startAyat = document.getElementById('start-ayat');
@@ -295,9 +300,7 @@
         }
 
         async function loadAyahs(num) {
-            btnMain.disabled = true;
-            btnPause.disabled = true;
-            btnHint.disabled = true;
+            btnMain.disabled = true; btnPause.disabled = true; btnStop.disabled = true; btnRestart.disabled = true;
             statusMsg.innerHTML = "Memuat ayat... ⏳";
             
             try {
@@ -312,11 +315,30 @@
                     endAyat.add(new Option(`Ayat ${a.numberInSurah}`, i));
                 });
                 endAyat.value = surahData.length - 1;
-                btnMain.disabled = false;
-                btnPause.disabled = false;
-                btnHint.disabled = false;
+                btnMain.disabled = false; btnPause.disabled = false; btnStop.disabled = false; btnRestart.disabled = false;
                 statusMsg.innerHTML = "Siap! Tekan Play ▶️";
             } catch (err) {}
+        }
+
+        function stopGameLogic() {
+            isPaused = false;
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+            if (recognition) { try { recognition.stop(); } catch(e) {} }
+            
+            currentIdx = parseInt(startAyat.value);
+            progressBar.style.width = '0%';
+            
+            btnMain.className = "btn-round btn-play";
+            btnMain.innerHTML = '<i class="fas fa-play"></i>';
+            btnPause.innerHTML = '<i class="fas fa-pause"></i>';
+            btnPause.style.backgroundColor = "#ff9800"; // Kembali ke warna oranye
+            btnMain.style.animation = "none";
+            
+            arabicText.innerHTML = "...";
+            transcriptText.innerHTML = "Siap bermain?";
         }
 
         function playQari() {
@@ -337,7 +359,6 @@
             
             if(currentAudio) {
                 currentAudio.pause();
-                currentAudio.removeEventListener('timeupdate', checkHalfTime);
             }
             currentAudio = new Audio(audioUrl);
             
@@ -370,6 +391,7 @@
             currentAudio.play();
             btnMain.innerHTML = '<i class="fas fa-volume-up"></i>';
             btnMain.className = "btn-round btn-play playing";
+            btnMain.style.animation = "";
             
             arabicText.innerHTML = surahData[currentIdx].text;
             transcriptText.innerHTML = "...";
@@ -387,6 +409,7 @@
             
             btnMain.innerHTML = '<i class="fas fa-microphone"></i>';
             btnMain.className = "btn-round btn-play listening";
+            btnMain.style.animation = "";
             
             arabicText.innerHTML = surahData[targetAyahIdx].text;
             
@@ -395,14 +418,17 @@
             }
         }
 
+        // --- TOMBOL AKSI ---
+        
         btnMain.onclick = () => {
             if (btnMain.innerHTML.includes('redo')) {
-                currentIdx = parseInt(startAyat.value);
-                isPaused = false;
+                stopGameLogic();
                 playQari();
                 return;
             }
             if (btnMain.className.includes('listening')) return; 
+            
+            if (btnMain.className.includes('playing')) return; // Mencegah double klik saat jalan
             
             currentIdx = parseInt(startAyat.value);
             isPaused = false;
@@ -410,18 +436,31 @@
             playQari();
         };
 
+        btnStop.onclick = () => {
+            stopGameLogic();
+            statusMsg.innerHTML = "Permainan dihentikan. Tekan Play untuk mulai.";
+        };
+
+        btnRestart.onclick = () => {
+            stopGameLogic();
+            statusMsg.innerHTML = "Memulai ulang...";
+            playQari();
+        };
+
         btnPause.onclick = () => {
+            if (btnMain.className === "btn-round btn-play") return; // Abaikan jika belum jalan
+
             isPaused = !isPaused;
             if (isPaused) {
                 if (currentAudio) currentAudio.pause();
                 if (recognition) { try { recognition.stop(); } catch(e) {} }
                 btnPause.innerHTML = '<i class="fas fa-play"></i>';
-                btnPause.style.backgroundColor = "#28a745"; 
+                btnPause.style.backgroundColor = "#28a745"; // Hijau
                 statusMsg.innerHTML = "Permainan di-Pause";
                 btnMain.style.animation = "none";
             } else {
                 btnPause.innerHTML = '<i class="fas fa-pause"></i>';
-                btnPause.style.backgroundColor = "#dc3545";
+                btnPause.style.backgroundColor = "#ff9800"; // Kembali oranye
                 btnMain.style.animation = ""; 
                 
                 if (btnMain.className.includes('playing') && currentAudio) {
@@ -430,30 +469,8 @@
                 } else if (btnMain.className.includes('listening') && recognition) {
                     try { recognition.start(); } catch(e) {}
                     statusMsg.innerHTML = "Lanjut mendengarkan suaramu...";
-                } else {
-                    playQari();
                 }
             }
-        };
-
-        btnHint.onclick = () => {
-            if (!btnMain.className.includes('listening')) return;
-            
-            const qari = qariSelect.value;
-            const ayahId = surahData[targetAyahIdx].number;
-            const audioUrl = `https://cdn.islamic.network/quran/audio/64/${qari}/${ayahId}.mp3`;
-            
-            if(recognition) { try { recognition.stop(); } catch(e) {} }
-            
-            const hintAudio = new Audio(audioUrl);
-            hintAudio.play();
-            statusMsg.innerHTML = "Bantuan... 💡";
-            
-            setTimeout(() => {
-                hintAudio.pause();
-                if(recognition) { try { recognition.start(); } catch(e) {} }
-                statusMsg.innerHTML = "Ayo lanjut!";
-            }, 2500); 
         };
 
         textToggle.onchange = (e) => {
@@ -467,17 +484,14 @@
                 const speech = e.results[0][0].transcript;
                 transcriptText.innerHTML = speech;
                 
-                // SISTEM "GARIS FINISH": Memaksa anak membaca sampai akhir ayat
                 const targetTextRaw = normalize(surahData[targetAyahIdx].text);
                 const targetWords = targetTextRaw.split(" ");
                 
-                // Ambil 4 kata terakhir dari target sebagai "Garis Finish"
                 const finishLine = targetWords.slice(-4); 
                 const inputWords = normalize(speech).split(" ");
 
                 let ok = false;
                 
-                // Cek apakah ada ucapan anak yang menembus Garis Finish
                 for(let k of inputWords) { 
                     if(k.length > 2 && finishLine.includes(k)) { 
                         ok = true; 
@@ -485,13 +499,9 @@
                     } 
                 }
 
-                // Fallback khusus jika ayatnya sangat pendek (kurang dari 3 kata)
                 if (!ok && targetWords.length <= 3) {
                     for(let k of inputWords) {
-                        if(k.length > 2 && targetWords.includes(k)) {
-                            ok = true;
-                            break;
-                        }
+                        if(k.length > 2 && targetWords.includes(k)) { ok = true; break; }
                     }
                 }
 
