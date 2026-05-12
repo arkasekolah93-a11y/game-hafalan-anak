@@ -120,14 +120,13 @@
         let currentAyahIndex = 0;
         let currentAudio = null;
 
-        // FUNGSI BARU: Text-to-Speech untuk merespons anak
         function bicara(teks) {
             if ('speechSynthesis' in window) {
                 const suara = new SpeechSynthesisUtterance();
                 suara.text = teks;
-                suara.lang = 'id-ID'; // Bahasa Indonesia
-                suara.rate = 1.0; // Kecepatan normal
-                suara.pitch = 1.2; // Pitch agak tinggi agar ramah anak
+                suara.lang = 'id-ID'; 
+                suara.rate = 1.0; 
+                suara.pitch = 1.2; 
                 window.speechSynthesis.speak(suara);
             }
         }
@@ -168,7 +167,6 @@
             recognition.interimResults = false;
 
             btn.addEventListener('click', () => {
-                // Hentikan suara robot jika masih bicara
                 window.speechSynthesis.cancel(); 
 
                 if(currentAyahIndex >= surahData.length - 1) {
@@ -209,25 +207,33 @@
                 const cleanTranscript = transcript.replace(/[\u0617-\u061A\u064B-\u0652]/g, '');
                 const cleanTarget = targetText.replace(/[\u0617-\u061A\u064B-\u0652]/g, '');
                 
-                const kataTranscript = cleanTranscript.split(" ");
-                let cocok = false;
-
+                // Ambil kata dari ucapan anak yang lebih dari 2 huruf
+                const kataTranscript = cleanTranscript.split(" ").filter(k => k.length > 2);
+                
+                // Hitung berapa kata yang diucapkan anak yang cocok dengan ayat target
+                let jumlahCocok = 0;
                 for(let kata of kataTranscript) {
-                    if(kata.length > 2 && cleanTarget.includes(kata)) {
-                        cocok = true; break;
+                    if(cleanTarget.includes(kata)) {
+                        jumlahCocok++;
                     }
                 }
 
-                if(cocok) {
+                // Ambil jumlah kata dari ayat target untuk standar kelulusan
+                const kataTarget = cleanTarget.split(" ").filter(k => k.length > 2);
+                
+                // LOGIKA BARU: Jika ayat pendek (<= 2 kata), butuh 1 kata benar. Jika ayat panjang, butuh minimal 2 kata benar.
+                let butuhCocok = kataTarget.length <= 2 ? 1 : 2; 
+
+                if(jumlahCocok >= butuhCocok) {
                     messageBox.innerHTML = "🎉 Horeee! Lanjut! 🎉";
                     messageBox.style.color = "#28a745";
-                    bicara("Hore, pintar sekali! Lanjut yuk."); // <--- AUDIO SUKSES
+                    bicara("Hore, pintar sekali! Lanjut yuk."); 
                     currentAyahIndex++; 
                     statusAyat.innerHTML = `Ayat ${currentAyahIndex + 1} dari ${surahData.length}`;
                 } else {
                     messageBox.innerHTML = "Kurang pas, kita coba lagi yuk! 💪";
                     messageBox.style.color = "#ff9800";
-                    bicara("Kurang pas, kita coba lagi yuk!"); // <--- AUDIO GAGAL
+                    bicara("Kurang pas, kita coba lagi yuk!"); 
                 }
             };
         }
