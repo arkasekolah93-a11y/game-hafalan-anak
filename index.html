@@ -2,12 +2,12 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Hafalan Anak - 30 Juz</title>
     <style>
         body {
-            background-color: #007BFF;
-            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            background-color: #007BFF; /* Biru */
+            font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -16,7 +16,7 @@
             text-align: center;
         }
         .container {
-            background-color: #FFFFFF;
+            background-color: #FFFFFF; /* Putih */
             padding: 25px;
             border-radius: 20px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
@@ -34,17 +34,17 @@
             padding: 15px;
             border-radius: 15px;
         }
-        .row-control { display: flex; gap: 10px; }
+        .row-control { display: flex; gap: 10px; align-items: center; justify-content: center;}
         select {
-            flex: 1;
             padding: 8px;
             border-radius: 8px;
-            border: 2px solid #FFC107;
+            border: 2px solid #FFC107; /* Kuning */
             font-size: 14px;
             font-weight: bold;
             color: #0056b3;
             outline: none;
         }
+        label { font-size: 12px; color: #666; font-weight: bold; }
         
         .main-btn {
             background-color: #FFC107;
@@ -57,12 +57,9 @@
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
             transition: 0.2s;
-            margin-top: 10px;
         }
-        .main-btn:active { transform: scale(0.9); }
         .main-btn.playing { background-color: #17a2b8; animation: bounce 1s infinite; }
         .main-btn.listening { background-color: #ff9800; animation: pulse 1s infinite; }
-        .main-btn:disabled { background-color: #ccc; cursor: not-allowed; box-shadow: none; animation: none;}
 
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -78,33 +75,39 @@
             color: #333;
             direction: rtl;
         }
-        .message { margin-top: 10px; font-size: 16px; font-weight: bold; color: #0056b3; min-height: 25px; }
+        .message { margin-top: 10px; font-size: 16px; font-weight: bold; color: #0056b3; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Sambung Ayat 30 Juz! 🌟</h1>
+        <h1>Sambung Ayat Al-Qur'an 🌟</h1>
         
         <div class="controls">
-            <select id="qari-select">
-                <option value="Muhammad_Thaha_Al-Junayd_128kbps" selected>👦 Suara Anak (Thaha Al-Junayd)</option>
-                <option value="Minshawy_Teacher_128kbps">👨‍👧 Guru & Anak (Minshawi)</option>
-                <option value="Alafasy_128kbps">👨 Suara Dewasa (Alafasy)</option>
+            <select id="qari-select" style="width: 100%;">
+                <option value="Muhammad_Thaha_Al-Junayd_128kbps" selected>👦 Thaha Al-Junayd (Anak)</option>
+                <option value="Minshawy_Teacher_128kbps">👨‍👧 Minshawi (Guru & Anak)</option>
+                <option value="Alafasy_128kbps">👨 Alafasy (Dewasa)</option>
             </select>
             
+            <select id="surah-select" style="width: 100%;">
+                <option value="">Memuat Surat... ⏳</option>
+            </select>
+
             <div class="row-control">
-                <select id="surah-select">
-                    <option value="">Memuat Surat... ⏳</option>
-                </select>
-                <select id="ayat-select">
-                    <option value="0">Ayat 1</option>
-                </select>
+                <div>
+                    <label>Dari Ayat</label><br>
+                    <select id="start-ayat"></select>
+                </div>
+                <div>
+                    <label>Sampai Ayat</label><br>
+                    <select id="end-ayat"></select>
+                </div>
             </div>
         </div>
         
         <button id="main-btn" class="main-btn" disabled>▶️</button>
-        <div id="message" class="message">Tunggu sebentar...</div>
+        <div id="message" class="message">Tunggu...</div>
         <div id="result" class="result-box">...</div>
     </div>
 
@@ -114,153 +117,125 @@
         const messageBox = document.getElementById('message');
         const qariSelect = document.getElementById('qari-select');
         const surahSelect = document.getElementById('surah-select');
-        const ayatSelect = document.getElementById('ayat-select');
+        const startAyat = document.getElementById('start-ayat');
+        const endAyat = document.getElementById('end-ayat');
 
         let surahData = [];
-        let currentAyahIndex = 0;
+        let currentIdx = 0;
 
-        function bicara(teks) {
-            if ('speechSynthesis' in window) {
-                const suara = new SpeechSynthesisUtterance();
-                suara.text = teks;
-                suara.lang = 'id-ID'; 
-                suara.rate = 1.0; 
-                suara.pitch = 1.2; 
-                window.speechSynthesis.speak(suara);
-            }
+        function normalize(text) {
+            return text.replace(/[\u0617-\u061A\u064B-\u0652]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim();
         }
 
-        // Ambil Daftar 114 Surat
-        async function fetchSurahList() {
-            try {
-                const res = await fetch('https://api.alquran.cloud/v1/surah');
-                const data = await res.json();
-                
-                surahSelect.innerHTML = '';
-                data.data.forEach(surah => {
-                    let opt = document.createElement('option');
-                    opt.value = surah.number;
-                    opt.text = `${surah.number}. ${surah.englishName} (${surah.name})`;
-                    surahSelect.add(opt);
-                });
-                
-                surahSelect.value = 1; // Default Al-Fatihah
-                await loadSurahData(1);
-            } catch (err) {
-                messageBox.innerHTML = "Gagal memuat surat.";
-            }
+        async function fetchSurahs() {
+            const res = await fetch('https://api.alquran.cloud/v1/surah');
+            const data = await res.json();
+            surahSelect.innerHTML = '';
+            data.data.forEach(s => {
+                let opt = document.createElement('option');
+                opt.value = s.number;
+                opt.text = `${s.number}. ${s.englishName}`;
+                surahSelect.add(opt);
+            });
+            surahSelect.value = 1;
+            loadAyahs(1);
         }
 
-        // Ambil Ayat (Versi Teks Gundul / Simple Clean) agar cocok dengan tangkapan suara HP
-        async function loadSurahData(surahNumber) {
+        async function loadAyahs(num) {
             btn.disabled = true;
-            messageBox.innerHTML = "Memuat ayat... ⏳";
+            const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/quran-simple-clean`);
+            const data = await res.json();
+            surahData = data.data.ayahs;
             
-            try {
-                const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/quran-simple-clean`);
-                const data = await res.json();
-                surahData = data.data.ayahs;
-                
-                ayatSelect.innerHTML = '';
-                surahData.forEach((ayah, index) => {
-                    let opt = document.createElement('option');
-                    opt.value = index;
-                    opt.text = `Ayat ${ayah.numberInSurah}`;
-                    ayatSelect.add(opt);
-                });
-
-                currentAyahIndex = 0;
-                ayatSelect.value = 0;
-                
-                messageBox.innerHTML = "Siap! Tekan Play ▶️";
-                btn.disabled = false;
-            } catch (error) {
-                messageBox.innerHTML = "Gagal memuat teks.";
-            }
+            startAyat.innerHTML = '';
+            endAyat.innerHTML = '';
+            surahData.forEach((a, i) => {
+                let optS = new Option(`Ayat ${a.numberInSurah}`, i);
+                let optE = new Option(`Ayat ${a.numberInSurah}`, i);
+                startAyat.add(optS);
+                endAyat.add(optE);
+            });
+            endAyat.value = surahData.length - 1;
+            messageBox.innerHTML = "Siap! Tekan Play ▶️";
+            btn.disabled = false;
         }
 
-        function getAudioUrl(qari, surahNum, ayahNumInSurah) {
-            let s = String(surahNum).padStart(3, '0');
-            let a = String(ayahNumInSurah).padStart(3, '0');
-            return `https://everyayah.com/data/${qari}/${s}${a}.mp3`;
-        }
-
-        fetchSurahList();
-
-        surahSelect.addEventListener('change', (e) => { loadSurahData(e.target.value); resultBox.innerHTML = "..."; });
-        ayatSelect.addEventListener('change', (e) => { 
-            currentAyahIndex = parseInt(e.target.value); 
-            resultBox.innerHTML = "..."; 
-            messageBox.innerHTML = "Siap! Tekan Play ▶️"; 
-        });
+        fetchSurahs();
+        surahSelect.onchange = () => loadAyahs(surahSelect.value);
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
             recognition.lang = 'ar-SA';
-            recognition.interimResults = false;
 
-            btn.addEventListener('click', () => {
-                window.speechSynthesis.cancel(); 
-                if(currentAyahIndex >= surahData.length - 1) {
-                    messageBox.innerHTML = "Surat selesai! Pilih surat lain.";
-                    bicara("Alhamdulillah, surat selesai! Kamu hebat.");
+            function playSession() {
+                if (currentIdx > parseInt(endAyat.value)) {
+                    messageBox.innerHTML = "Selesai! ✨";
+                    btn.innerHTML = "▶️";
+                    btn.className = "main-btn";
                     return;
                 }
 
-                const audioUrl = getAudioUrl(qariSelect.value, surahSelect.value, surahData[currentAyahIndex].numberInSurah);
-                const currentAudio = new Audio(audioUrl);
-                currentAudio.play();
+                // Qari Memutar Ayat
+                const qari = qariSelect.value;
+                const sNum = String(surahSelect.value).padStart(3, '0');
+                const aNum = String(surahData[currentIdx].numberInSurah).padStart(3, '0');
+                const audio = new Audio(`https://everyayah.com/data/${qari}/${sNum}${aNum}.mp3`);
                 
+                audio.play().catch(() => {
+                    // Fallback jika Thaha server 1 bermasalah
+                    audio.src = `https://mirrors.quranicaudio.com/everyayah/data/${qari}/${sNum}${aNum}.mp3`;
+                    audio.play();
+                });
+
                 btn.innerHTML = "🔊";
                 btn.className = "main-btn playing";
-                messageBox.innerHTML = "Ssst... Dengarkan dulu 🤫";
-                resultBox.innerHTML = "...";
+                messageBox.innerHTML = `Qari: Ayat ${surahData[currentIdx].numberInSurah}`;
 
-                currentAudio.onended = () => {
+                audio.onended = () => {
+                    if (currentIdx + 1 > parseInt(endAyat.value)) {
+                        messageBox.innerHTML = "Alhamdulillah Selesai!";
+                        btn.innerHTML = "▶️";
+                        btn.className = "main-btn";
+                        return;
+                    }
+                    
+                    // Giliran Kamu
                     recognition.start();
                     btn.innerHTML = "🎤";
                     btn.className = "main-btn listening";
-                    messageBox.innerHTML = `Lanjutkan Ayat ${surahData[currentAyahIndex + 1].numberInSurah}! 🎤`;
+                    messageBox.innerHTML = `Sekarang kamu: Ayat ${surahData[currentIdx + 1].numberInSurah}`;
                 };
-            });
+            }
 
-            recognition.onspeechend = () => {
-                recognition.stop();
-                btn.innerHTML = "▶️";
-                btn.className = "main-btn";
+            btn.onclick = () => {
+                currentIdx = parseInt(startAyat.value);
+                playSession();
             };
 
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                resultBox.innerHTML = transcript;
+            recognition.onresult = (e) => {
+                const speech = e.results[0][0].transcript;
+                resultBox.innerHTML = speech;
+                const target = normalize(surahData[currentIdx + 1].text);
+                const input = normalize(speech).split(" ");
 
-                // Teks target murni tanpa harakat (sudah dari API)
-                const targetText = surahData[currentAyahIndex + 1].text; 
-                
-                // Normalisasi ringan (ubah alif bengkok jadi alif tegak)
-                const cleanTranscript = transcript.replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').split(" ");
-                const cleanTarget = targetText.replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
-                
-                let cocok = false;
-                
-                // Cek apakah ada minimal 1 kata bermakna (lebih dari 2 huruf) yang diucapkan dengan benar
-                for(let kata of cleanTranscript) {
-                    if(kata.length > 2 && cleanTarget.includes(kata)) {
-                        cocok = true; 
-                        break;
-                    }
-                }
+                let ok = false;
+                for(let k of input) { if(k.length > 2 && target.includes(k)) { ok = true; break; } }
 
-                if(cocok) {
-                    messageBox.innerHTML = "🎉 Horeee! Lanjut! 🎉";
-                    bicara("Hore, pintar sekali! Lanjut yuk."); 
-                    currentAyahIndex++; 
-                    ayatSelect.value = currentAyahIndex;
+                if (ok) {
+                    currentIdx += 2; // Lompat ke ayat Qari berikutnya
+                    setTimeout(playSession, 500);
                 } else {
-                    messageBox.innerHTML = "Kurang pas, coba lagi yuk! 💪";
-                    bicara("Kurang pas, coba lagi yuk!"); 
+                    messageBox.innerHTML = "Kurang pas, coba ulangi ayat tadi ya.";
+                    btn.innerHTML = "▶️";
+                    btn.className = "main-btn";
                 }
+            };
+
+            recognition.onerror = () => {
+                btn.innerHTML = "▶️";
+                btn.className = "main-btn";
+                messageBox.innerHTML = "Suara tidak terdengar, coba lagi.";
             };
         }
     </script>
